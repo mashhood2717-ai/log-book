@@ -14,7 +14,7 @@
 //    { action: "update", id, full_name?, role?, password?, banned? }
 //    { action: "delete", id }            only users with no trips
 // =====================================================================
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -84,7 +84,7 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-type Admin = ReturnType<typeof createClient>;
+type Admin = SupabaseClient;
 
 async function listUsers(admin: Admin) {
   const users = [];

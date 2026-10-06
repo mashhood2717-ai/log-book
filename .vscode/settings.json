@@ -2,5 +2,7 @@
   // Supabase Edge Functions run on Deno, not Node. Let the Deno extension
   // check that folder (fixes "Cannot find name 'Deno'" / npm: import errors).
   "deno.enablePaths": ["supabase/functions"],
-  "deno.lint": true
+  "deno.lint": true,
+  // Some machines start VS Code before Deno is on PATH; this is where winget puts it.
+  "deno.path": "${userHome}/AppData/Local/Microsoft/WinGet/Links/deno.exe"
 }

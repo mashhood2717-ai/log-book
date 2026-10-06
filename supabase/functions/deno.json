@@ -1,5 +1,13 @@
 {
   "compilerOptions": {
     "lib": ["deno.window"]
+  },
+  "lint": {
+    "rules": {
+      // Keep "npm:..." imports inline: functions are deployed by pasting the
+      // single file into the Supabase dashboard, which doesn't use this file's
+      // import map – a bare import would break the deploy.
+      "exclude": ["no-import-prefix"]
+    }
   }
 }
