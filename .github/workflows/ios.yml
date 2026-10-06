@@ -1,0 +1,47 @@
+# Builds an UNSIGNED iPhone app (.ipa) on GitHub's Mac machines, to install
+# with Sideloadly (it signs the app with your Apple ID).
+# Download: GitHub → Actions → latest "iOS build" run → Artifacts.
+name: iOS build
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  workflow_dispatch: # "Run workflow" button on the Actions page
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.38.5 # same version used for the Android app
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: flutter test
+
+      - name: Build iOS app (no code signing)
+        run: flutter build ios --release --no-codesign
+
+      - name: Package as .ipa
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          mkdir Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qr "TripLogbook-$VERSION-unsigned.ipa" Payload
+          ls -lh *.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TripLogbook-${{ env.VERSION }}-ios
+          path: "*.ipa"
+          retention-days: 30
