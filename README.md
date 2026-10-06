@@ -24,6 +24,7 @@ lib/
     home_screen.dart        open-trip card / start button / my trips
     start_trip_screen.dart
     end_trip_screen.dart
+    edit_trip_screen.dart   correct a trip (open, or up to 24 h after it ends)
     fleet_screen.dart       who has which vehicle right now (admin)
     admin_trips_screen.dart month view, totals, CSV export (admin)
     vehicles_screen.dart    add/edit/deactivate vehicles (admin)
@@ -74,7 +75,8 @@ Sign in as admin → tap the car icon → **Add vehicle** (reg no, model, curren
 ## Rules enforced by the backend (not just the app)
 
 - A driver sees and edits **only their own** trips; admin sees everything.
-- A trip can be edited only while it's **open**; once ended it's locked (admin can still correct it in Table Editor).
+- A driver can edit their trip while it's **open** and for **24 hours after it ends**; then it's locked. Times, GPS points, vehicle and driver can never be changed by drivers. Corrected trips are marked **Edited**.
+- Only admins can **delete** trips. Deleting or correcting a trip fixes the vehicle's odometer automatically.
 - One open trip per driver and per vehicle.
 - End mileage can't be less than start mileage; distance is calculated by the database.
 - Start/end times come from the **server clock** — drivers can't back-date or forward-date either.
@@ -85,6 +87,13 @@ Sign in as admin → tap the car icon → **Add vehicle** (reg no, model, curren
 ## Removing a driver
 
 Don't delete a driver who has trips (Supabase will refuse, because their trips reference them). Instead, in **Authentication > Users** open the user and **Ban** them, which blocks sign-in and keeps their history.
+
+## Testing
+
+```bash
+flutter test                                                   # app
+deno run -A --node-modules-dir=none supabase/tests/schema_test.ts  # database rules on a real Postgres
+```
 
 ## Branding
 

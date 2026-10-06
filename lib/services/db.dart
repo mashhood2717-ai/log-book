@@ -23,7 +23,14 @@ class Db {
   static Future<void> signIn(String email, String password) =>
       _c.auth.signInWithPassword(email: email.trim(), password: password);
 
-  static Future<void> signOut() => _c.auth.signOut();
+  static Future<void> signOut() {
+    me = null;
+    return _c.auth.signOut();
+  }
+
+  /// The signed-in user's profile, cached by [myProfile].
+  static Profile? me;
+  static bool get isAdmin => me?.isAdmin ?? false;
 
   static Future<Profile> myProfile() async {
     final row =
@@ -32,7 +39,7 @@ class Db {
       throw AppException(
           'Your account is not set up yet. Ask your admin to run the database setup.');
     }
-    return Profile.fromMap(row);
+    return me = Profile.fromMap(row);
   }
 
   // ---------------- Vehicles ----------------
@@ -166,6 +173,40 @@ class Db {
     // No row updated = trip was already ended (e.g. by admin or another phone)
     if (rows.isEmpty) {
       throw AppException('This trip had already been ended.');
+    }
+  }
+
+  // ---------------- Editing / deleting trips ----------------
+  /// How long after a trip ends it can still be corrected.
+  /// Must match the `trips_update` policy in supabase/schema.sql.
+  static const editWindow = Duration(hours: 24);
+
+  /// Time left to correct a finished trip (null = open trip, no limit).
+  static Duration? editTimeLeft(Trip t) =>
+      t.endTime?.add(editWindow).difference(DateTime.now());
+
+  /// The trip's driver or an admin may edit while it's open
+  /// and for [editWindow] after it ends.
+  static bool canEdit(Trip t) {
+    if (!(isAdmin || t.driverId == uid)) return false;
+    final left = editTimeLeft(t);
+    return left == null || left > Duration.zero;
+  }
+
+  static Future<void> updateTrip(int id, Map<String, dynamic> values) async {
+    final rows =
+        await _c.from('trips').update(values).eq('id', id).select('id');
+    if (rows.isEmpty) {
+      throw AppException(
+          'This trip can no longer be edited – the 24-hour limit has passed.');
+    }
+  }
+
+  /// Admin only (enforced by the database).
+  static Future<void> deleteTrip(int id) async {
+    final rows = await _c.from('trips').delete().eq('id', id).select('id');
+    if (rows.isEmpty) {
+      throw AppException('Trip not deleted – it may already be gone.');
     }
   }
 

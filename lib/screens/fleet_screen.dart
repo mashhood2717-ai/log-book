@@ -198,7 +198,9 @@ class _FleetScreenState extends State<FleetScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => showTripDetails(context, t),
+        onTap: () async {
+          if (await showTripDetails(context, t)) _refresh();
+        },
         child: Container(
           decoration: const BoxDecoration(
             border: Border(left: BorderSide(color: Brand.orange, width: 5)),

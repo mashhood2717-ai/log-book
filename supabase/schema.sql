@@ -85,6 +85,9 @@ alter table public.trips add column if not exists end_lat        double precisio
 alter table public.trips add column if not exists end_lng        double precision;
 alter table public.trips add column if not exists end_accuracy   real;  -- metres
 
+-- Set when a finished trip is corrected afterwards (shown as "Edited" in the app)
+alter table public.trips add column if not exists edited_at timestamptz;
+
 alter table public.trips drop constraint if exists end_not_before_start;
 alter table public.trips add constraint end_not_before_start
   check (end_time is null or end_time >= start_time);
@@ -111,14 +114,25 @@ begin
       new.start_time := old.start_time;
       new.vehicle_id := old.vehicle_id;
       new.created_at := old.created_at;
-      -- End time is always the server clock for drivers
-      if new.status = 'completed' and old.status = 'ongoing' then
-        new.end_time := now();
-      elsif new.status = 'ongoing' then
+      new.start_lat := old.start_lat; new.start_lng := old.start_lng;
+      new.start_accuracy := old.start_accuracy;
+      if old.status = 'completed' then
+        -- Correcting a finished trip (allowed for 24 h, see trips_update policy):
+        -- it stays finished, and its end time and end GPS can't be changed.
+        new.status   := 'completed';
+        new.end_time := old.end_time;
+        new.end_lat := old.end_lat; new.end_lng := old.end_lng;
+        new.end_accuracy := old.end_accuracy;
+      elsif new.status = 'completed' then
+        new.end_time := now(); -- end time is always the server clock for drivers
+      else
         new.end_time := null;
       end if;
     elsif new.status = 'completed' and old.status = 'ongoing' and new.end_time is null then
       new.end_time := now();
+    end if;
+    if old.status = 'completed' then
+      new.edited_at := now();
     end if;
   end if;
   return new;
@@ -128,10 +142,37 @@ drop trigger if exists trips_guard on public.trips;
 create trigger trips_guard before insert or update on public.trips
   for each row execute function public.trips_guard();
 
--- When a trip is closed, remember the vehicle's latest odometer reading
+-- Keep each vehicle's last_odometer right when trips end, are corrected or deleted
 create or replace function public.trips_update_odometer()
 returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  fallback integer; -- reading to use if the changed trip was the latest one
 begin
+  -- A finished trip was deleted, or its end reading corrected: if it was the
+  -- vehicle's latest reading, fall back to the best remaining reading.
+  if tg_op = 'DELETE' then
+    if old.status = 'completed' then
+      fallback := old.start_mileage;
+    end if;
+  elsif tg_op = 'UPDATE' then
+    if old.status = 'completed' and new.end_mileage is distinct from old.end_mileage then
+      fallback := new.end_mileage;
+    end if;
+  end if;
+
+  if fallback is not null then
+    update public.vehicles v
+       set last_odometer = greatest(fallback, coalesce(
+             (select max(t.end_mileage) from public.trips t
+               where t.vehicle_id = old.vehicle_id and t.status = 'completed'
+                 and t.id <> old.id), 0))
+     where v.id = old.vehicle_id and v.last_odometer = old.end_mileage;
+  end if;
+
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+
   if new.status = 'completed' and new.end_mileage is not null then
     update public.vehicles
        set last_odometer = greatest(last_odometer, new.end_mileage)
@@ -141,7 +182,7 @@ begin
 end $$;
 
 drop trigger if exists trips_update_odometer on public.trips;
-create trigger trips_update_odometer after insert or update on public.trips
+create trigger trips_update_odometer after insert or update or delete on public.trips
   for each row execute function public.trips_update_odometer();
 
 -- ---------- ROW LEVEL SECURITY --------------------------------------
@@ -164,7 +205,8 @@ drop policy if exists vehicles_admin_all on public.vehicles;
 create policy vehicles_admin_all on public.vehicles for all to authenticated
   using (public.is_admin()) with check (public.is_admin());
 
--- Trips: drivers see/create their own and can only edit while the trip is open
+-- Trips: drivers see/create their own; they can edit while the trip is open
+-- and for 24 hours after it ends. Only admins can delete.
 drop policy if exists trips_select on public.trips;
 create policy trips_select on public.trips for select to authenticated
   using (driver_id = auth.uid() or public.is_admin());
@@ -175,7 +217,9 @@ create policy trips_insert on public.trips for insert to authenticated
 
 drop policy if exists trips_update on public.trips;
 create policy trips_update on public.trips for update to authenticated
-  using ((driver_id = auth.uid() and status = 'ongoing') or public.is_admin())
+  using ((driver_id = auth.uid()
+          and (status = 'ongoing' or end_time > now() - interval '24 hours'))
+         or public.is_admin())
   with check (driver_id = auth.uid() or public.is_admin());
 
 drop policy if exists trips_admin_delete on public.trips;

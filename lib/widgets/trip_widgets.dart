@@ -4,6 +4,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
 import '../models.dart';
+import '../screens/edit_trip_screen.dart';
+import '../services/db.dart';
 import 'brand.dart';
 
 final dateTimeFmt = DateFormat('dd MMM yyyy, hh:mm a');
@@ -78,7 +80,11 @@ class LocationLink extends StatelessWidget {
 class TripTile extends StatelessWidget {
   final Trip trip;
   final bool showDriver;
-  const TripTile({super.key, required this.trip, this.showDriver = false});
+
+  /// Called after the trip was edited or deleted from its details sheet.
+  final VoidCallback? onChanged;
+  const TripTile(
+      {super.key, required this.trip, this.showDriver = false, this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -128,14 +134,19 @@ class TripTile extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                     color: Brand.blue,
                     fontSize: 15)),
-        onTap: () => showTripDetails(context, trip),
+        onTap: () async {
+          if (await showTripDetails(context, trip)) onChanged?.call();
+        },
       ),
     );
   }
 }
 
 /// Bottom sheet with every detail of a trip.
-void showTripDetails(BuildContext context, Trip t) {
+///
+/// Shows Edit (driver/admin, within 24 h of the end) and Delete (admin).
+/// Returns true if the trip was edited or deleted, so lists can refresh.
+Future<bool> showTripDetails(BuildContext context, Trip t) async {
   Widget rowWidget(String label, Widget value) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
         child: Row(
@@ -152,18 +163,38 @@ void showTripDetails(BuildContext context, Trip t) {
   Widget row(String label, String value) => rowWidget(label,
       Text(value, style: const TextStyle(fontWeight: FontWeight.w500)));
 
-  showModalBottomSheet(
+  final canEdit = Db.canEdit(t);
+  final left = Db.editTimeLeft(t);
+  final action = await showModalBottomSheet<String>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => SafeArea(
+    builder: (sheet) => SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Trip #${t.id}',
-                style: Theme.of(context).textTheme.titleLarge),
+            Row(children: [
+              Text('Trip #${t.id}',
+                  style: Theme.of(context).textTheme.titleLarge),
+              if (t.editedAt != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Brand.orange.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text('EDITED',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFFB36B00))),
+                ),
+              ],
+            ]),
             const Divider(),
             row('Driver', t.driverName),
             row('Vehicle', t.vehicleRegNo),
@@ -195,9 +226,102 @@ void showTripDetails(BuildContext context, Trip t) {
                     : '${AppConfig.currency} ${moneyFmt.format(t.fuelCost)}'),
             row('Notes',
                 (t.notes == null || t.notes!.isEmpty) ? '–' : t.notes!),
+            if (t.editedAt != null)
+              row('Last edited', dateTimeFmt.format(t.editedAt!)),
+            if (canEdit || Db.isAdmin) ...[
+              const SizedBox(height: 16),
+              Row(children: [
+                if (canEdit)
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => Navigator.pop(sheet, 'edit'),
+                      icon: const Icon(Icons.edit_outlined),
+                      label: const Text('Edit trip'),
+                      style: FilledButton.styleFrom(
+                          minimumSize: const Size.fromHeight(50)),
+                    ),
+                  ),
+                if (canEdit && Db.isAdmin) const SizedBox(width: 12),
+                if (Db.isAdmin)
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.pop(sheet, 'delete'),
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Delete'),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(50),
+                        foregroundColor: Theme.of(context).colorScheme.error,
+                        side: BorderSide(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .error
+                                .withValues(alpha: 0.5)),
+                      ),
+                    ),
+                  ),
+              ]),
+              if (canEdit && left != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                      'Can be edited for another ${durationText(left)}.',
+                      style: Theme.of(context).textTheme.bodySmall),
+                ),
+              if (!canEdit && !t.isOngoing && t.driverId == Db.uid)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                      'Editing closed – more than 24 hours since the trip ended.',
+                      style: Theme.of(context).textTheme.bodySmall),
+                ),
+            ],
           ],
         ),
       ),
     ),
   );
+  if (!context.mounted || action == null) return false;
+
+  if (action == 'edit') {
+    final saved = await Navigator.push<bool>(context,
+        MaterialPageRoute(builder: (_) => EditTripScreen(trip: t)));
+    return saved == true;
+  }
+
+  // Delete (admin)
+  final sure = await showDialog<bool>(
+    context: context,
+    builder: (c) => AlertDialog(
+      title: Text('Delete trip #${t.id}?'),
+      content: Text('${t.vehicleRegNo} → ${t.destination}, '
+          '${dateFmt.format(t.startTime)} by ${t.driverName}.\n\n'
+          'This permanently removes the trip. It cannot be undone.'),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Cancel')),
+        FilledButton(
+          style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(c).colorScheme.error),
+          onPressed: () => Navigator.pop(c, true),
+          child: const Text('Delete'),
+        ),
+      ],
+    ),
+  );
+  if (sure != true || !context.mounted) return false;
+  try {
+    await Db.deleteTrip(t.id);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Trip #${t.id} deleted')));
+    }
+    return true;
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(Db.friendlyError(e))));
+    }
+    return false;
+  }
 }

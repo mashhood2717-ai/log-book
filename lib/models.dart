@@ -137,6 +137,7 @@ class Trip {
   final String? notes;
   final GeoPoint? startLocation;
   final GeoPoint? endLocation;
+  final DateTime? editedAt; // set when a finished trip was corrected
 
   Trip({
     required this.id,
@@ -157,6 +158,7 @@ class Trip {
     this.notes,
     this.startLocation,
     this.endLocation,
+    this.editedAt,
   });
 
   bool get isOngoing => status == 'ongoing';
@@ -189,6 +191,7 @@ class Trip {
       notes: m['notes'] as String?,
       startLocation: GeoPoint.fromColumns(m, 'start'),
       endLocation: GeoPoint.fromColumns(m, 'end'),
+      editedAt: _toDate(m['edited_at']),
     );
   }
 }

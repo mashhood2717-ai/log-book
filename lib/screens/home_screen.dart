@@ -8,6 +8,7 @@ import '../widgets/animations.dart';
 import '../widgets/brand.dart';
 import '../widgets/trip_widgets.dart';
 import 'admin_trips_screen.dart';
+import 'edit_trip_screen.dart';
 import 'end_trip_screen.dart';
 import 'fleet_screen.dart';
 import 'start_trip_screen.dart';
@@ -233,7 +234,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         for (final (i, t) in d.recent.indexed)
-          FadeSlideIn(index: i + 3, child: TripTile(trip: t)),
+          FadeSlideIn(
+              index: i + 3, child: TripTile(trip: t, onChanged: _refresh)),
       ],
     );
   }
@@ -308,15 +310,28 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(children: [
-            PulsingDot(color: Colors.white, size: 9),
-            SizedBox(width: 4),
-            Text('TRIP IN PROGRESS',
-                style: TextStyle(
-                    color: ink,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.2,
-                    fontSize: 12)),
+          Row(children: [
+            const PulsingDot(color: Colors.white, size: 9),
+            const SizedBox(width: 4),
+            const Expanded(
+              child: Text('TRIP IN PROGRESS',
+                  style: TextStyle(
+                      color: ink,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                      fontSize: 12)),
+            ),
+            // Fix a wrong start mileage, purpose or destination
+            TextButton.icon(
+              onPressed: () => _open(EditTripScreen(trip: t)),
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: const Text('Edit'),
+              style: TextButton.styleFrom(
+                foregroundColor: ink,
+                backgroundColor: Colors.white.withValues(alpha: 0.35),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
           ]),
           const SizedBox(height: 10),
           Text('${t.vehicleRegNo}  →  ${t.destination}',

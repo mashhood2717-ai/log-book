@@ -113,13 +113,22 @@ Tap the driver → **Block**. They can no longer sign in, and their trips stay i
 In the app, as admin: **car icon** → **Add vehicle**, or tap a vehicle to edit it. Use the switch to make a sold or retired vehicle inactive (its history stays).
 
 ### Correct a wrong trip entry
-Drivers can't edit a trip after ending it. As admin:
-1. **Table Editor → trips** → find the trip (sort by `start_time`)
-2. Double-click the wrong value (e.g. `end_mileage`) and fix it
-3. If the vehicle's odometer is now wrong too, fix it in the app: **car icon** → tap the vehicle → edit **Current odometer**. (The automatic odometer only ever goes up, so a typo that made it too high has to be corrected by hand.)
+In the app, tap the trip → **Edit trip**. The driver (or an admin) can correct mileage, purpose, destination, fuel and notes:
+- while the trip is open, and
+- for **24 hours after it ends**. After that it's locked.
+
+Start/end times and GPS locations can't be changed. A corrected trip shows an **EDITED** label with the time of the change, so you always know.
+The vehicle's odometer is fixed automatically when the end mileage is corrected.
+
+Older than 24 hours? Admins can still correct it in **Supabase → Table Editor → trips** (double-click the value).
+
+### Delete a trip (admin)
+Tap the trip → **Delete** → confirm. It is removed permanently. If it was the vehicle's latest trip, the vehicle's odometer goes back to the previous reading.
 
 ### A driver forgot to end a trip
-Either the driver signs in and ends it, or in **Table Editor → trips** set `end_mileage`, then `status` = `completed`.
+Best: ask the driver to open the app and tap **End trip** with the real odometer reading.
+If that's not possible: in **Table Editor → trips** set `end_mileage`, then `status` = `completed`.
+If the trip was started by mistake, you can **Delete** it in the app instead.
 
 ---
 

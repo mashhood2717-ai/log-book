@@ -259,7 +259,9 @@ class _AdminTripsScreenState extends State<AdminTripsScreen> {
         padding: const EdgeInsets.only(top: 6, bottom: 24),
         itemCount: _trips.length,
         itemBuilder: (_, i) => FadeSlideIn(
-            index: i, child: TripTile(trip: _trips[i], showDriver: true)),
+            index: i,
+            child: TripTile(
+                trip: _trips[i], showDriver: true, onChanged: _load)),
       ),
     );
   }
