@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../models.dart';
 import '../services/db.dart';
+import '../widgets/brand.dart';
 import '../widgets/location_capture.dart';
 import '../widgets/trip_widgets.dart';
 
@@ -117,7 +118,7 @@ class _StartTripScreenState extends State<StartTripScreen> {
         future: _vehicles,
         builder: (context, snap) {
           if (!snap.hasData && !snap.hasError) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: BrandLoader(label: 'Loading vehicles…'));
           }
           if (snap.hasError) {
             return Center(child: Text(Db.friendlyError(snap.error!)));

@@ -8,6 +8,8 @@ import 'package:share_plus/share_plus.dart';
 import '../config.dart';
 import '../models.dart';
 import '../services/db.dart';
+import '../widgets/animations.dart';
+import '../widgets/brand.dart';
 import '../widgets/trip_widgets.dart';
 
 /// Admin view: all drivers' trips for a month, with totals and CSV export.
@@ -200,10 +202,11 @@ class _AdminTripsScreenState extends State<AdminTripsScreen> {
           Padding(
             padding: const EdgeInsets.all(12),
             child: Row(children: [
-              _stat('Trips', numFmt.format(_trips.length)),
-              _stat('Distance', km(totalKm)),
-              _stat('Fuel', '${moneyFmt.format(totalL)} L'),
-              _stat('Cost', moneyFmt.format(totalCost)),
+              _stat('Trips', _trips.length, (v) => numFmt.format(v)),
+              _stat('Km', totalKm, (v) => numFmt.format(v)),
+              _stat('Fuel L', totalL, (v) => moneyFmt.format(v)),
+              _stat(AppConfig.currency, totalCost,
+                  (v) => NumberFormat.compact().format(v)),
             ]),
           ),
           const Divider(height: 1),
@@ -213,18 +216,39 @@ class _AdminTripsScreenState extends State<AdminTripsScreen> {
     );
   }
 
-  Widget _stat(String label, String value) => Expanded(
-        child: Column(children: [
-          Text(value,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              textAlign: TextAlign.center),
-          Text(label,
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-        ]),
+  Widget _stat(String label, num value, String Function(num) format) =>
+      Expanded(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Brand.blue.withValues(alpha: 0.07)),
+          ),
+          child: Column(children: [
+            FittedBox(
+              child: CountUp(
+                value: value,
+                format: format,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    color: Brand.blue),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(label,
+                style: TextStyle(
+                    color: Brand.ink.withValues(alpha: 0.55),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600)),
+          ]),
+        ),
       );
 
   Widget _list() {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Center(child: BrandLoader(label: 'Loading trips…'));
     if (_error != null) return Center(child: Text(_error!));
     if (_trips.isEmpty) {
       return const Center(child: Text('No trips this month.'));
@@ -234,7 +258,8 @@ class _AdminTripsScreenState extends State<AdminTripsScreen> {
       child: ListView.builder(
         padding: const EdgeInsets.only(top: 6, bottom: 24),
         itemCount: _trips.length,
-        itemBuilder: (_, i) => TripTile(trip: _trips[i], showDriver: true),
+        itemBuilder: (_, i) => FadeSlideIn(
+            index: i, child: TripTile(trip: _trips[i], showDriver: true)),
       ),
     );
   }

@@ -30,6 +30,9 @@ lib/
     users_screen.dart       add/block drivers, reset passwords (admin)
   widgets/trip_widgets.dart trip list tile + detail sheet, map links
   widgets/location_capture.dart  GPS status line on start/end forms
+  widgets/brand.dart        WeatherWalay colours, animated logo mark, wordmark, loader
+  widgets/animations.dart   fade/slide-in, pulsing dot, count-up, drifting background
+branding/                   logo files (SVG/PNG) and app-icon sources
 supabase/schema.sql         database, security rules, triggers
 supabase/functions/admin-users/index.ts   server-side user management
 ```
@@ -83,9 +86,14 @@ Sign in as admin → tap the car icon → **Add vehicle** (reg no, model, curren
 
 Don't delete a driver who has trips (Supabase will refuse, because their trips reference them). Instead, in **Authentication > Users** open the user and **Ban** them, which blocks sign-in and keeps their history.
 
+## Branding
+
+- The WeatherWalay mark is drawn in code (`lib/widgets/brand.dart`), so it is sharp at any size and animates: the drops fall in and the sun pops up; while loading, the drops bob.
+- Logo files for print/web are in `branding/` – `weatherwalay_deployment_logo.svg/.png` (transparent and white background) and `weatherwalay_mark.svg/.png`.
+- App icon sources are in `branding/icon/`. After changing them run `dart run flutter_launcher_icons`.
+
 ## Common tweaks
 
 - Currency label: `AppConfig.currency` in `lib/config.dart`.
 - Gap warning (50 km): `start_trip_screen.dart`.
-- Theme colour: `colorSchemeSeed` in `main.dart`.
-- App icon: add `flutter_launcher_icons` if you want the WeatherWalay logo.
+- Brand colours: `Brand` in `lib/widgets/brand.dart`; app theme: `_theme()` in `main.dart`.

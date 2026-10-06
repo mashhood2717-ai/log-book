@@ -14,6 +14,7 @@ _Last updated: 6 October 2026_
 | **Login accounts and passwords** | Supabase → Authentication | Stored with the database |
 | **App source code** | This computer: `D:\trip_logbook` | ❌ Only on this computer – back it up |
 | **App signing key** (needed to publish updates) | `D:\trip_logbook\android\app\upload-keystore.jks` + `D:\trip_logbook\android\key.properties` | ⚠️ You must keep your own copy |
+| **Logo files** (SVG + PNG, for print/web) | `D:\trip_logbook\branding\` | In git |
 | **The installable app (APK)** | `D:\trip_logbook\build\app\outputs\flutter-apk\app-release.apk` | Can be rebuilt any time from the code |
 | **Drivers' phones** | Only the login session – **no trip data is kept on phones** | Nothing to back up |
 

@@ -4,9 +4,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
 import '../models.dart';
+import 'brand.dart';
 
 final dateTimeFmt = DateFormat('dd MMM yyyy, hh:mm a');
 final dateFmt = DateFormat('dd MMM yyyy');
+final timeFmt = DateFormat('hh:mm a');
 final numFmt = NumberFormat('#,##0');
 final moneyFmt = NumberFormat('#,##0.##');
 
@@ -80,26 +82,52 @@ class TripTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final open = trip.isOngoing;
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+      clipBehavior: Clip.antiAlias,
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor:
-              trip.isOngoing ? Colors.orange.shade100 : scheme.primaryContainer,
-          child: Icon(trip.isOngoing ? Icons.directions_car : Icons.check,
-              color: trip.isOngoing ? Colors.orange.shade800 : scheme.primary),
+        contentPadding: const EdgeInsets.fromLTRB(12, 4, 16, 4),
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            gradient: open ? Brand.sunGradient : Brand.blueGradient,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(open ? Icons.directions_car : Icons.check_rounded,
+              color: Colors.white),
         ),
         title: Text(trip.destination,
-            maxLines: 1, overflow: TextOverflow.ellipsis),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+                fontWeight: FontWeight.w700, color: Brand.ink)),
         subtitle: Text(
           '${dateFmt.format(trip.startTime)} · ${trip.vehicleRegNo}'
           '${showDriver ? ' · ${trip.driverName}' : ''}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: Text(trip.isOngoing ? 'Open' : km(trip.distanceKm),
-            style: const TextStyle(fontWeight: FontWeight.w600)),
+        trailing: open
+            ? Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Brand.orange.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text('OUT',
+                    style: TextStyle(
+                        color: Color(0xFFB36B00),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12)),
+              )
+            : Text(km(trip.distanceKm),
+                style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: Brand.blue,
+                    fontSize: 15)),
         onTap: () => showTripDetails(context, trip),
       ),
     );

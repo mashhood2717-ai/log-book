@@ -7,6 +7,8 @@ import 'package:share_plus/share_plus.dart';
 import '../config.dart';
 import '../models.dart';
 import '../services/db.dart';
+import '../widgets/animations.dart';
+import '../widgets/brand.dart';
 import '../widgets/trip_widgets.dart';
 
 /// Admin: add drivers, reset passwords, block/unblock, make admin.
@@ -261,14 +263,17 @@ class _UsersScreenState extends State<UsersScreen> {
             ]);
           }
           if (!snap.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: BrandLoader(label: 'Loading users…'));
           }
           final list = snap.data!;
           return RefreshIndicator(
             onRefresh: _reload,
             child: ListView(
               padding: const EdgeInsets.only(top: 6, bottom: 90),
-              children: list.map(_tile).toList(),
+              children: [
+                for (final (i, u) in list.indexed)
+                  FadeSlideIn(index: i, child: _tile(u)),
+              ],
             ),
           );
         },

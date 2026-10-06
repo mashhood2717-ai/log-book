@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../models.dart';
 import '../services/db.dart';
+import '../widgets/animations.dart';
+import '../widgets/brand.dart';
 import '../widgets/trip_widgets.dart';
 
 /// Admin: add vehicles, correct odometer, mark vehicles inactive.
@@ -123,7 +125,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
             return Center(child: Text(Db.friendlyError(snap.error!)));
           }
           if (!snap.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: BrandLoader(label: 'Loading vehicles…'));
           }
           final list = snap.data!;
           if (list.isEmpty) {
@@ -131,23 +133,39 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
           }
           return ListView(
             padding: const EdgeInsets.only(bottom: 90),
-            children: list
-                .map((v) => Card(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 5),
-                      child: ListTile(
-                        title: Text(v.regNo,
-                            style: TextStyle(
-                                color: v.active ? null : Colors.grey)),
-                        subtitle: Text(
-                            '${v.description ?? ''}\nOdometer: ${km(v.lastOdometer)}'),
-                        isThreeLine: true,
-                        onTap: () => _edit(v),
-                        trailing: Switch(
-                            value: v.active, onChanged: (a) => _toggle(v, a)),
+            children: [
+              for (final (i, v) in list.indexed)
+                FadeSlideIn(
+                  index: i,
+                  child: Card(
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                    child: ListTile(
+                      leading: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          gradient: v.active ? Brand.blueGradient : null,
+                          color: v.active ? null : Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(Icons.directions_car,
+                            color: Colors.white),
                       ),
-                    ))
-                .toList(),
+                      title: Text(v.regNo,
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: v.active ? Brand.ink : Colors.grey)),
+                      subtitle: Text(
+                          '${v.description ?? ''}\nOdometer: ${km(v.lastOdometer)}'),
+                      isThreeLine: true,
+                      onTap: () => _edit(v),
+                      trailing: Switch(
+                          value: v.active, onChanged: (a) => _toggle(v, a)),
+                    ),
+                  ),
+                ),
+            ],
           );
         },
       ),

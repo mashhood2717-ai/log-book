@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 
 import '../models.dart';
 import '../services/db.dart';
+import '../widgets/animations.dart';
+import '../widgets/brand.dart';
 import '../widgets/trip_widgets.dart';
 
 class _FleetData {
@@ -100,7 +102,7 @@ class _FleetScreenState extends State<FleetScreen> {
         ),
       ]);
     }
-    if (d == null) return const Center(child: CircularProgressIndicator());
+    if (d == null) return const BrandLoaderList(label: 'Checking the fleet…');
 
     final theme = Theme.of(context);
     return ListView(
@@ -109,9 +111,10 @@ class _FleetScreenState extends State<FleetScreen> {
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
           child: Row(children: [
-            _count('Out now', d.out.length, Colors.orange.shade800),
+            _count('Out now', d.out.length, Brand.sunGradient, Icons.route),
             const SizedBox(width: 12),
-            _count('Available', d.available.length, Colors.green.shade700),
+            _count('Available', d.available.length, Brand.blueGradient,
+                Icons.local_parking),
           ]),
         ),
         Padding(
@@ -124,31 +127,64 @@ class _FleetScreenState extends State<FleetScreen> {
         ),
         _header('Out now'),
         if (d.out.isEmpty) _empty('All vehicles are in.'),
-        ...d.out.map((e) => _outCard(e.$1, e.$2)),
+        for (final (i, e) in d.out.indexed)
+          FadeSlideIn(index: i + 1, child: _outCard(e.$1, e.$2)),
         _header('Available'),
         if (d.available.isEmpty) _empty('No vehicles available.'),
-        ...d.available.map(_availableTile),
+        for (final (i, v) in d.available.indexed)
+          FadeSlideIn(index: d.out.length + i + 2, child: _availableTile(v)),
       ],
     );
   }
 
-  Widget _count(String label, int n, Color color) => Expanded(
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Column(children: [
-              Text('$n',
-                  style: TextStyle(
-                      fontSize: 28, fontWeight: FontWeight.bold, color: color)),
-              Text(label),
+  Widget _count(String label, int n, Gradient gradient, IconData icon) =>
+      Expanded(
+        child: FadeSlideIn(
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: gradient,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                    color: gradient.colors.last.withValues(alpha: 0.3),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8)),
+              ],
+            ),
+            child: Row(children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CountUp(
+                      value: n,
+                      format: (v) => '$v',
+                      style: const TextStyle(
+                          fontSize: 34,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          height: 1),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(label,
+                        style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+              Icon(icon, color: Colors.white.withValues(alpha: 0.7), size: 30),
             ]),
           ),
         ),
       );
 
   Widget _header(String text) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-        child: Text(text, style: Theme.of(context).textTheme.titleMedium),
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 6),
+        child: Text(text,
+            style: const TextStyle(
+                fontSize: 17, fontWeight: FontWeight.w700, color: Brand.ink)),
       );
 
   Widget _empty(String text) => Padding(
@@ -157,40 +193,70 @@ class _FleetScreenState extends State<FleetScreen> {
       );
 
   Widget _outCard(Vehicle v, Trip t) {
-    final theme = Theme.of(context);
-    final muted = TextStyle(color: Colors.grey.shade700);
+    final muted = TextStyle(color: Brand.ink.withValues(alpha: 0.6));
     return Card(
-      color: Colors.orange.shade50,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => showTripDetails(context, t),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
+        child: Container(
+          decoration: const BoxDecoration(
+            border: Border(left: BorderSide(color: Brand.orange, width: 5)),
+          ),
+          padding: const EdgeInsets.fromLTRB(12, 14, 14, 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(children: [
-                Icon(Icons.directions_car, color: Colors.orange.shade800),
-                const SizedBox(width: 8),
+                const PulsingDot(color: Brand.orange, size: 9),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Text(v.label,
-                      style: theme.textTheme.titleMedium,
+                      style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Brand.ink),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                 ),
-                Text(durationText(t.duration),
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.orange.shade900)),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Brand.orange.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(durationText(t.duration),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFFB36B00))),
+                ),
               ]),
-              const SizedBox(height: 8),
-              Text('${t.driverName}  →  ${t.destination}',
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 10),
+              Row(children: [
+                Icon(Icons.person, size: 18, color: Brand.blue),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(t.driverName,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Icon(Icons.arrow_forward, size: 16),
+                ),
+                Icon(Icons.place, size: 18, color: Brand.orange),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(t.destination,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                ),
+              ]),
+              const SizedBox(height: 4),
               Text(t.purpose, style: muted),
               const SizedBox(height: 4),
-              Text('Left ${dateTimeFmt.format(t.startTime)}'
-                  ' · at ${km(t.startMileage)}', style: muted),
-              const SizedBox(height: 2),
+              Text('Left ${dateTimeFmt.format(t.startTime)} · at ${km(t.startMileage)}',
+                  style: muted),
+              const SizedBox(height: 4),
               LocationLink(t.startLocation),
             ],
           ),
@@ -200,10 +266,22 @@ class _FleetScreenState extends State<FleetScreen> {
   }
 
   Widget _availableTile(Vehicle v) => Card(
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
         child: ListTile(
-          leading: Icon(Icons.local_parking, color: Colors.green.shade700),
-          title: Text(v.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+          leading: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Brand.blue.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.local_parking, color: Brand.blue),
+          ),
+          title: Text(v.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700, color: Brand.ink)),
           subtitle: Text('Odometer: ${km(v.lastOdometer)}'),
         ),
       );
