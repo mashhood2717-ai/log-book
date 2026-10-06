@@ -1,0 +1,6 @@
+{
+  // Supabase Edge Functions run on Deno, not Node. Let the Deno extension
+  // check that folder (fixes "Cannot find name 'Deno'" / npm: import errors).
+  "deno.enablePaths": ["supabase/functions"],
+  "deno.lint": true
+}

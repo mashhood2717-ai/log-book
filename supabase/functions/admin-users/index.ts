@@ -34,7 +34,9 @@ const fail = (message: string, status = 400) => json({ error: message }, status)
 const ROLES = ["driver", "admin"];
 const BAN_FOREVER = "876000h"; // ~100 years
 
-Deno.serve(async (req) => {
+type ProfileRow = { id: string; full_name: string; role: string };
+
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return fail("Use POST.", 405);
 
@@ -95,7 +97,9 @@ async function listUsers(admin: Admin) {
   const { data: profiles, error } = await admin
     .from("profiles").select("id, full_name, role");
   if (error) throw error;
-  const byId = new Map(profiles.map((p) => [p.id, p]));
+  const byId = new Map(
+    (profiles as ProfileRow[]).map((p): [string, ProfileRow] => [p.id, p]),
+  );
   const now = Date.now();
 
   return users.map((u) => ({
