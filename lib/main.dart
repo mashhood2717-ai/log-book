@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'services/theme_settings.dart';
 import 'widgets/brand.dart';
 
 Future<void> main() async {
@@ -14,6 +15,7 @@ Future<void> main() async {
     publishableKey: AppConfig.supabaseKey,
     httpClient: _TimeoutClient(),
   );
+  await ThemeSettings.load();
   runApp(const LogbookApp());
 }
 
@@ -32,46 +34,60 @@ class LogbookApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: AppConfig.appName,
-      debugShowCheckedModeBanner: false,
-      theme: _theme(),
-      home: const AuthGate(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeSettings.mode,
+      builder: (_, mode, __) => MaterialApp(
+        title: AppConfig.appName,
+        debugShowCheckedModeBanner: false,
+        theme: appTheme(Brightness.light),
+        darkTheme: appTheme(Brightness.dark),
+        themeMode: mode,
+        home: const AuthGate(),
+      ),
     );
   }
 }
 
-ThemeData _theme() {
+/// The app's look, built for light or dark mode from the same brand colours.
+ThemeData appTheme(Brightness brightness) {
+  final dark = brightness == Brightness.dark;
+  final c = dark ? AppColors.dark : AppColors.light;
+  final primary = dark ? Brand.sky : Brand.blue;
   final scheme = ColorScheme.fromSeed(
     seedColor: Brand.blue,
-    primary: Brand.blue,
+    brightness: brightness,
+    primary: primary,
+    onPrimary: Colors.white,
     secondary: Brand.orange,
     tertiary: Brand.sky,
-    surface: Colors.white,
+    surface: c.card,
+    onSurface: c.ink,
   );
   final rounded = RoundedRectangleBorder(borderRadius: BorderRadius.circular(16));
-  OutlineInputBorder border(Color c, [double w = 1]) => OutlineInputBorder(
+  OutlineInputBorder border(Color col, [double w = 1]) => OutlineInputBorder(
       borderRadius: BorderRadius.circular(14),
-      borderSide: BorderSide(color: c, width: w));
+      borderSide: BorderSide(color: col, width: w));
 
   return ThemeData(
     useMaterial3: true,
+    brightness: brightness,
     colorScheme: scheme,
-    scaffoldBackgroundColor: Brand.mist,
-    appBarTheme: const AppBarTheme(
-      backgroundColor: Brand.mist,
+    extensions: [c],
+    scaffoldBackgroundColor: c.page,
+    appBarTheme: AppBarTheme(
+      backgroundColor: c.page,
       surfaceTintColor: Colors.transparent,
-      foregroundColor: Brand.ink,
+      foregroundColor: c.ink,
       titleTextStyle: TextStyle(
-          color: Brand.ink, fontSize: 20, fontWeight: FontWeight.w700),
+          color: c.ink, fontSize: 20, fontWeight: FontWeight.w700),
     ),
     cardTheme: CardThemeData(
-      color: Colors.white,
+      color: c.card,
       elevation: 0,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: Brand.blue.withValues(alpha: 0.07)),
+        side: BorderSide(color: c.border),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
@@ -83,32 +99,37 @@ ThemeData _theme() {
     outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(shape: rounded)),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      backgroundColor: Brand.blue,
+      backgroundColor: primary,
       foregroundColor: Colors.white,
       shape: rounded,
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.white,
-      border: border(Brand.blue.withValues(alpha: 0.15)),
-      enabledBorder: border(Brand.blue.withValues(alpha: 0.15)),
-      focusedBorder: border(Brand.blue, 2),
+      fillColor: c.card,
+      border: border(primary.withValues(alpha: 0.18)),
+      enabledBorder: border(primary.withValues(alpha: 0.18)),
+      focusedBorder: border(primary, 2),
       errorBorder: border(scheme.error),
       focusedErrorBorder: border(scheme.error, 2),
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      backgroundColor: Brand.ink,
+      backgroundColor: dark ? const Color(0xFF26304A) : Brand.ink,
+      contentTextStyle: const TextStyle(color: Colors.white),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
-    bottomSheetTheme: const BottomSheetThemeData(
-      backgroundColor: Colors.white,
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: c.card,
       surfaceTintColor: Colors.transparent,
     ),
     dialogTheme: DialogThemeData(
-      backgroundColor: Colors.white,
+      backgroundColor: c.card,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+    ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: c.card,
+      surfaceTintColor: Colors.transparent,
     ),
     pageTransitionsTheme: const PageTransitionsTheme(builders: {
       TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),

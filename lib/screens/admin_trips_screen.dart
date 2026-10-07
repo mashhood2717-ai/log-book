@@ -222,25 +222,25 @@ class _AdminTripsScreenState extends State<AdminTripsScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 3),
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: context.colors.card,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Brand.blue.withValues(alpha: 0.07)),
+            border: Border.all(color: context.colors.border),
           ),
           child: Column(children: [
             FittedBox(
               child: CountUp(
                 value: value,
                 format: format,
-                style: const TextStyle(
+                style: TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 18,
-                    color: Brand.blue),
+                    color: context.colors.accent),
               ),
             ),
             const SizedBox(height: 2),
             Text(label,
                 style: TextStyle(
-                    color: Brand.ink.withValues(alpha: 0.55),
+                    color: context.colors.muted,
                     fontSize: 12,
                     fontWeight: FontWeight.w600)),
           ]),

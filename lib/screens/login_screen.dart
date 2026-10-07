@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../config.dart';
 import '../services/db.dart';
+import '../services/theme_settings.dart';
 import '../widgets/animations.dart';
 import '../widgets/brand.dart';
 
@@ -44,10 +45,23 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: context.colors.page,
       body: Stack(children: [
         const Positioned.fill(
           child: DriftingBlobs(colors: [Brand.sky, Brand.orange, Brand.blue]),
+        ),
+        SafeArea(
+          child: Align(
+            alignment: Alignment.topRight,
+            child: ValueListenableBuilder(
+              valueListenable: ThemeSettings.mode,
+              builder: (_, mode, __) => IconButton(
+                tooltip: 'Appearance',
+                icon: Icon(ThemeSettings.icon(mode)),
+                onPressed: () => ThemeSettings.showPicker(context),
+              ),
+            ),
+          ),
         ),
         SafeArea(
           child: Center(
@@ -67,7 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Text(AppConfig.appName,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                              color: Brand.ink.withValues(alpha: 0.55),
+                              color: context.colors.muted,
                               fontWeight: FontWeight.w500)),
                     ),
                     const SizedBox(height: 32),
@@ -90,11 +104,14 @@ class _LoginScreenState extends State<LoginScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
+        color: context.colors.card.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Brand.blue.withValues(alpha: 0.12),
+            // A blue glow looks heavy on a dark page; use a soft shade there.
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.black.withValues(alpha: 0.25)
+                : Brand.blue.withValues(alpha: 0.12),
             blurRadius: 40,
             offset: const Offset(0, 16),
           ),
@@ -105,11 +122,11 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Sign in',
+            Text('Sign in',
                 style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
-                    color: Brand.ink)),
+                    color: context.colors.ink)),
             const SizedBox(height: 16),
             TextFormField(
               controller: _email,
@@ -187,7 +204,10 @@ class _GradientButtonState extends State<_GradientButton> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                    color: Brand.blue.withValues(alpha: 0.35),
+                    color: Brand.blue.withValues(
+                        alpha: Theme.of(context).brightness == Brightness.dark
+                            ? 0.15
+                            : 0.35),
                     blurRadius: 18,
                     offset: const Offset(0, 8)),
               ],

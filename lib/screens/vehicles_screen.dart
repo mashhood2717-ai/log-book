@@ -146,7 +146,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                         height: 44,
                         decoration: BoxDecoration(
                           gradient: v.active ? Brand.blueGradient : null,
-                          color: v.active ? null : Colors.grey.shade300,
+                          color: v.active ? null : context.colors.disabled,
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Icon(Icons.directions_car,
@@ -155,7 +155,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
                       title: Text(v.regNo,
                           style: TextStyle(
                               fontWeight: FontWeight.w700,
-                              color: v.active ? Brand.ink : Colors.grey)),
+                              color: v.active ? context.colors.ink : context.colors.muted)),
                       subtitle: Text(
                           '${v.description ?? ''}\nOdometer: ${km(v.lastOdometer)}'),
                       isThreeLine: true,

@@ -114,14 +114,14 @@ class _EditTripScreenState extends State<EditTripScreen> {
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(children: [
-                const Icon(Icons.info_outline, color: Brand.blue),
+                Icon(Icons.info_outline, color: context.colors.accent),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     '${t.vehicleRegNo} · ${t.driverName}\n'
                     'Times and GPS locations can\'t be changed.'
                     '${left == null ? '' : '\nYou can edit this trip for another ${durationText(left)}.'}',
-                    style: const TextStyle(color: Brand.ink, height: 1.35),
+                    style: TextStyle(color: context.colors.ink, height: 1.35),
                   ),
                 ),
               ]),

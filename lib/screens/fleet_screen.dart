@@ -183,17 +183,17 @@ class _FleetScreenState extends State<FleetScreen> {
   Widget _header(String text) => Padding(
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 6),
         child: Text(text,
-            style: const TextStyle(
-                fontSize: 17, fontWeight: FontWeight.w700, color: Brand.ink)),
+            style: TextStyle(
+                fontSize: 17, fontWeight: FontWeight.w700, color: context.colors.ink)),
       );
 
   Widget _empty(String text) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Text(text, style: TextStyle(color: Colors.grey.shade600)),
+        child: Text(text, style: TextStyle(color: context.colors.muted)),
       );
 
   Widget _outCard(Vehicle v, Trip t) {
-    final muted = TextStyle(color: Brand.ink.withValues(alpha: 0.6));
+    final muted = TextStyle(color: context.colors.muted);
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
       clipBehavior: Clip.antiAlias,
@@ -214,10 +214,10 @@ class _FleetScreenState extends State<FleetScreen> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(v.label,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
-                          color: Brand.ink),
+                          color: context.colors.ink),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                 ),
@@ -229,14 +229,14 @@ class _FleetScreenState extends State<FleetScreen> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(durationText(t.duration),
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFFB36B00))),
+                          color: context.colors.amberText)),
                 ),
               ]),
               const SizedBox(height: 10),
               Row(children: [
-                Icon(Icons.person, size: 18, color: Brand.blue),
+                Icon(Icons.person, size: 18, color: context.colors.accent),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(t.driverName,
@@ -277,13 +277,13 @@ class _FleetScreenState extends State<FleetScreen> {
               color: Brand.blue.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.local_parking, color: Brand.blue),
+            child: Icon(Icons.local_parking, color: context.colors.accent),
           ),
           title: Text(v.label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w700, color: Brand.ink)),
+              style: TextStyle(
+                  fontWeight: FontWeight.w700, color: context.colors.ink)),
           subtitle: Text('Odometer: ${km(v.lastOdometer)}'),
         ),
       );

@@ -294,19 +294,19 @@ class _UsersScreenState extends State<UsersScreen> {
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor:
-              u.banned ? Colors.grey.shade300 : scheme.primaryContainer,
+              u.banned ? context.colors.disabled : scheme.primaryContainer,
           child: Icon(
             u.banned
                 ? Icons.block
                 : (u.isAdmin ? Icons.admin_panel_settings : Icons.person),
-            color: u.banned ? Colors.grey.shade700 : scheme.primary,
+            color: u.banned ? context.colors.muted : scheme.primary,
           ),
         ),
         title: Text(
           u.displayName + (tags.isEmpty ? '' : '  · ${tags.join(' · ')}'),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: u.banned ? Colors.grey.shade600 : null),
+          style: TextStyle(color: u.banned ? context.colors.muted : null),
         ),
         subtitle: Text(
           '${u.email}\n'

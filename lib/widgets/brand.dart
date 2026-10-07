@@ -22,6 +22,82 @@ class Brand {
   );
 }
 
+/// Colours that change between light and dark mode.
+/// Use `context.colors.ink` etc. instead of fixed colours in widgets.
+@immutable
+class AppColors extends ThemeExtension<AppColors> {
+  final Color ink; // main text
+  final Color muted; // secondary text
+  final Color faint; // icons in empty states, hints
+  final Color page; // screen background
+  final Color card; // cards, sheets, inputs
+  final Color border; // hairline borders on cards
+  final Color accent; // brand-blue text/icons (lighter in dark mode)
+  final Color amberText; // text on the orange "OUT"/"EDITED" chips
+  final Color disabled; // inactive vehicle / blocked user tiles
+
+  const AppColors({
+    required this.ink,
+    required this.muted,
+    required this.faint,
+    required this.page,
+    required this.card,
+    required this.border,
+    required this.accent,
+    required this.amberText,
+    required this.disabled,
+  });
+
+  static const light = AppColors(
+    ink: Brand.ink,
+    muted: Color(0x990B1B3F),
+    faint: Color(0x4D0B1B3F),
+    page: Brand.mist,
+    card: Colors.white,
+    border: Color(0x120952DF),
+    accent: Brand.blue,
+    amberText: Color(0xFFB36B00),
+    disabled: Color(0xFFE0E0E0),
+  );
+
+  static const dark = AppColors(
+    ink: Color(0xFFE8EEFF),
+    muted: Color(0xA6E8EEFF),
+    faint: Color(0x4DE8EEFF),
+    page: Color(0xFF0A1020),
+    card: Color(0xFF141D33),
+    border: Color(0x26397DFF),
+    accent: Color(0xFF6E9DFF),
+    amberText: Color(0xFFFFC24D),
+    disabled: Color(0xFF2A3247),
+  );
+
+  @override
+  AppColors copyWith() => this;
+
+  @override
+  AppColors lerp(AppColors? other, double t) {
+    if (other == null) return this;
+    Color l(Color a, Color b) => Color.lerp(a, b, t)!;
+    return AppColors(
+      ink: l(ink, other.ink),
+      muted: l(muted, other.muted),
+      faint: l(faint, other.faint),
+      page: l(page, other.page),
+      card: l(card, other.card),
+      border: l(border, other.border),
+      accent: l(accent, other.accent),
+      amberText: l(amberText, other.amberText),
+      disabled: l(disabled, other.disabled),
+    );
+  }
+}
+
+extension AppColorsX on BuildContext {
+  AppColors get colors =>
+      Theme.of(this).extension<AppColors>() ?? AppColors.light;
+}
+
 /// Draws the WeatherWalay mark: two drops and a sun.
 ///
 /// Geometry is traced from the 512×512 logo; the mark's own box is 400×244.
@@ -170,7 +246,7 @@ class BrandWordmark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = color ?? Brand.ink;
+    final ink = color ?? context.colors.ink;
     return Column(
       crossAxisAlignment: align,
       mainAxisSize: MainAxisSize.min,
@@ -180,7 +256,7 @@ class BrandWordmark extends StatelessWidget {
             TextSpan(text: 'Weather', style: TextStyle(color: ink)),
             TextSpan(
                 text: 'Walay',
-                style: TextStyle(color: color ?? Brand.blue)),
+                style: TextStyle(color: color ?? context.colors.accent)),
           ]),
           style: TextStyle(
               fontSize: size,
@@ -217,7 +293,7 @@ class BrandLoader extends StatelessWidget {
           const SizedBox(height: 14),
           Text(label!,
               style: TextStyle(
-                  color: Brand.ink.withValues(alpha: 0.6),
+                  color: context.colors.muted,
                   fontWeight: FontWeight.w500)),
         ],
       ],

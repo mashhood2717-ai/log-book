@@ -105,4 +105,5 @@ deno run -A --node-modules-dir=none supabase/tests/schema_test.ts  # database ru
 
 - Currency label: `AppConfig.currency` in `lib/config.dart`.
 - Gap warning (50 km): `start_trip_screen.dart`.
-- Brand colours: `Brand` in `lib/widgets/brand.dart`; app theme: `_theme()` in `main.dart`.
+- Brand colours: `Brand` in `lib/widgets/brand.dart`; light/dark colour sets: `AppColors` (same file) – use `context.colors.ink` etc., never fixed colours; app theme: `appTheme()` in `main.dart`.
+- Dark mode follows the phone by default; users can pick System / Light / Dark under **⋮ → Appearance** (saved on the device by `lib/services/theme_settings.dart`).

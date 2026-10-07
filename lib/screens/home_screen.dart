@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models.dart';
 import '../services/db.dart';
+import '../services/theme_settings.dart';
 import '../widgets/animations.dart';
 import '../widgets/brand.dart';
 import '../widgets/trip_widgets.dart';
@@ -89,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             fontSize: 10.5,
                             letterSpacing: 1.4,
                             fontWeight: FontWeight.w700,
-                            color: Brand.ink.withValues(alpha: 0.5))),
+                            color: context.colors.muted)),
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 300),
                       child: Text(
@@ -116,40 +117,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   icon: const Icon(Icons.table_chart_outlined),
                   onPressed: () => _open(const AdminTripsScreen()),
                 ),
-                PopupMenuButton<String>(
-                  onSelected: (v) => switch (v) {
-                    'vehicles' => _open(const VehiclesScreen()),
-                    'users' => _open(const UsersScreen()),
-                    _ => Db.signOut(),
-                  },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(
-                      value: 'vehicles',
-                      child: ListTile(
-                          leading: Icon(Icons.directions_car_outlined),
-                          title: Text('Vehicles')),
-                    ),
-                    PopupMenuItem(
-                      value: 'users',
-                      child: ListTile(
-                          leading: Icon(Icons.people_outline),
-                          title: Text('Drivers & users')),
-                    ),
-                    PopupMenuDivider(),
-                    PopupMenuItem(
-                      value: 'signout',
-                      child: ListTile(
-                          leading: Icon(Icons.logout),
-                          title: Text('Sign out')),
-                    ),
-                  ],
-                ),
-              ] else
-                IconButton(
-                  tooltip: 'Sign out',
-                  icon: const Icon(Icons.logout),
-                  onPressed: Db.signOut,
-                ),
+              ],
+              _menu(isAdmin: data?.profile.isAdmin == true),
             ],
           ),
           body: RefreshIndicator(
@@ -158,6 +127,33 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
+    );
+  }
+
+  /// ⋮ menu: admin tools (admins only), appearance, sign out.
+  Widget _menu({required bool isAdmin}) {
+    PopupMenuItem<String> item(String value, IconData icon, String text) =>
+        PopupMenuItem(
+          value: value,
+          child: ListTile(leading: Icon(icon), title: Text(text)),
+        );
+    return PopupMenuButton<String>(
+      onSelected: (v) => switch (v) {
+        'vehicles' => _open(const VehiclesScreen()),
+        'users' => _open(const UsersScreen()),
+        'appearance' => ThemeSettings.showPicker(context),
+        _ => Db.signOut(),
+      },
+      itemBuilder: (_) => [
+        if (isAdmin) ...[
+          item('vehicles', Icons.directions_car_outlined, 'Vehicles'),
+          item('users', Icons.people_outline, 'Drivers & users'),
+          const PopupMenuDivider(),
+        ],
+        item('appearance', ThemeSettings.icon(ThemeSettings.mode.value),
+            'Appearance'),
+        item('signout', Icons.logout, 'Sign out'),
+      ],
     );
   }
 
@@ -173,7 +169,7 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.all(32),
             child: Column(children: [
               Icon(Icons.cloud_off,
-                  size: 56, color: Brand.ink.withValues(alpha: 0.35)),
+                  size: 56, color: context.colors.faint),
               const SizedBox(height: 12),
               Text(Db.friendlyError(snap.error!), textAlign: TextAlign.center),
               const SizedBox(height: 16),
@@ -207,15 +203,15 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 6),
             child: Row(children: [
-              const Text('My recent trips',
+              Text('My recent trips',
                   style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
-                      color: Brand.ink)),
+                      color: context.colors.ink)),
               const Spacer(),
               if (d.recent.isNotEmpty)
                 Text('${d.recent.length}',
-                    style: TextStyle(color: Brand.ink.withValues(alpha: 0.5))),
+                    style: TextStyle(color: context.colors.muted)),
             ]),
           ),
         ),
@@ -226,10 +222,10 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.all(32),
               child: Column(children: [
                 Icon(Icons.route,
-                    size: 44, color: Brand.ink.withValues(alpha: 0.25)),
+                    size: 44, color: context.colors.faint),
                 const SizedBox(height: 8),
                 Text('No completed trips yet.',
-                    style: TextStyle(color: Brand.ink.withValues(alpha: 0.5))),
+                    style: TextStyle(color: context.colors.muted)),
               ]),
             ),
           ),

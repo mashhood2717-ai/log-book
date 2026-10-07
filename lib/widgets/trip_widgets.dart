@@ -51,7 +51,7 @@ class LocationLink extends StatelessWidget {
     final p = point;
     if (p == null) {
       return Text('Not captured',
-          style: TextStyle(color: Colors.grey.shade600));
+          style: TextStyle(color: context.colors.muted));
     }
     return InkWell(
       onTap: () => openMap(context, p),
@@ -107,8 +107,8 @@ class TripTile extends StatelessWidget {
         title: Text(trip.destination,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-                fontWeight: FontWeight.w700, color: Brand.ink)),
+            style: TextStyle(
+                fontWeight: FontWeight.w700, color: context.colors.ink)),
         subtitle: Text(
           '${dateFmt.format(trip.startTime)} · ${trip.vehicleRegNo}'
           '${showDriver ? ' · ${trip.driverName}' : ''}',
@@ -123,16 +123,16 @@ class TripTile extends StatelessWidget {
                   color: Brand.orange.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Text('OUT',
+                child: Text('OUT',
                     style: TextStyle(
-                        color: Color(0xFFB36B00),
+                        color: context.colors.amberText,
                         fontWeight: FontWeight.w800,
                         fontSize: 12)),
               )
             : Text(km(trip.distanceKm),
-                style: const TextStyle(
+                style: TextStyle(
                     fontWeight: FontWeight.w800,
-                    color: Brand.blue,
+                    color: context.colors.accent,
                     fontSize: 15)),
         onTap: () async {
           if (await showTripDetails(context, trip)) onChanged?.call();
@@ -155,7 +155,7 @@ Future<bool> showTripDetails(BuildContext context, Trip t) async {
             SizedBox(
                 width: 120,
                 child:
-                    Text(label, style: TextStyle(color: Colors.grey.shade600))),
+                    Text(label, style: TextStyle(color: context.colors.muted))),
             Expanded(child: value),
           ],
         ),
@@ -187,11 +187,11 @@ Future<bool> showTripDetails(BuildContext context, Trip t) async {
                     color: Brand.orange.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text('EDITED',
+                  child: Text('EDITED',
                       style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFFB36B00))),
+                          color: context.colors.amberText)),
                 ),
               ],
             ]),
