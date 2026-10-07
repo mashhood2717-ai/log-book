@@ -109,6 +109,9 @@ Tap the driver → **Block**. They can no longer sign in, and their trips stay i
 
 > Behind the scenes this uses the `admin-users` Edge Function (see [§6](#6-the-app-and-its-code)). The same tasks can still be done by hand in the Supabase dashboard (Authentication → Users, Table Editor → profiles) if ever needed.
 
+### Daily reminders
+Every signed-in phone reminds the driver at **11:00 AM and 5:00 PM (Pakistan time)** to log their trips. Each person can turn them off or send a test in **⋮ → Reminders**. If a reminder never arrives, check the phone's **Settings → Apps → Trip Logbook → Notifications** is allowed (and on some phones, turn off battery optimisation for the app).
+
 ### Add / retire a vehicle
 In the app, as admin: **car icon** → **Add vehicle**, or tap a vehicle to edit it. Use the switch to make a sold or retired vehicle inactive (its history stays).
 

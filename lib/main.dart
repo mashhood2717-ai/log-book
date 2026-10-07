@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'services/reminders.dart';
 import 'services/theme_settings.dart';
 import 'widgets/brand.dart';
 
@@ -16,6 +17,7 @@ Future<void> main() async {
     httpClient: _TimeoutClient(),
   );
   await ThemeSettings.load();
+  await Reminders.init();
   runApp(const LogbookApp());
 }
 

@@ -65,6 +65,12 @@ flutter build apk --release # APK to share with drivers: build/app/outputs/flutt
 
 Sign in as admin → tap the car icon → **Add vehicle** (reg no, model, current odometer). Drivers can now log trips.
 
+## Trip reminders
+
+- Every signed-in phone gets a notification **daily at 11:00 AM and 5:00 PM Pakistan time** (whatever time zone the phone is set to): a reminder to start a trip before leaving, and to check every trip is logged. If a trip is still open, the reminder says so.
+- Scheduled on the phone itself (`lib/services/reminders.dart`, flutter_local_notifications) – no server; they keep working after a restart. Turn off / send a test under **⋮ → Reminders**. Signing out stops them.
+- Android uses exact alarms (`USE_EXACT_ALARM`), fine for a sideloaded APK; a Play Store release would need to justify that permission or fall back to inexact delivery (already handled in code).
+
 ## GPS / location
 
 - The app records the phone's position **once at trip start and once at trip end** – there is no background tracking, so no battery drain.

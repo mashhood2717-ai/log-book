@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status-bar icon for trip reminders: the WeatherWalay mark as a white
+     silhouette (Android tints it). Geometry matches lib/widgets/brand.dart. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="420"
+    android:viewportHeight="420">
+    <group android:translateX="-46" android:translateY="-46">
+        <path android:fillColor="#FFFFFFFF"
+            android:pathData="M296,136 A158,158 0 0 1 454,294 A79,79 0 0 1 296,294 Z" />
+        <path android:fillColor="#FFFFFFFF"
+            android:pathData="M177,136 A158,158 0 0 1 335,294 A79,79 0 0 1 177,294 Z" />
+        <path android:fillColor="#FFFFFFFF"
+            android:pathData="M58.5,296.5 A78.5,78.5 0 1 0 215.5,296.5 A78.5,78.5 0 1 0 58.5,296.5 Z" />
+    </group>
+</vector>

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models.dart';
+import 'reminders.dart';
 
 /// An error whose message is already fit to show a driver.
 class AppException implements Exception {
@@ -23,9 +24,10 @@ class Db {
   static Future<void> signIn(String email, String password) =>
       _c.auth.signInWithPassword(email: email.trim(), password: password);
 
-  static Future<void> signOut() {
+  static Future<void> signOut() async {
     me = null;
-    return _c.auth.signOut();
+    await Reminders.cancelAll(); // this phone should stop reminding
+    await _c.auth.signOut();
   }
 
   /// The signed-in user's profile, cached by [myProfile].

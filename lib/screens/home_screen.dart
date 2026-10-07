@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models.dart';
 import '../services/db.dart';
+import '../services/reminders.dart';
 import '../services/theme_settings.dart';
 import '../widgets/animations.dart';
 import '../widgets/brand.dart';
@@ -52,9 +53,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<_HomeData> _load() async {
     final results = await Future.wait(
         [Db.myProfile(), Db.myOpenTrip(), Db.myRecentTrips()]);
-    return _HomeData(
+    final data = _HomeData(
         results[0] as Profile, results[1] as Trip?, results[2] as List<Trip>);
+    _openTrip = data.openTrip;
+    // Keep the 11 AM / 5 PM reminders scheduled, worded for the current trip.
+    Reminders.sync(openTrip: data.openTrip);
+    return data;
   }
+
+  Trip? _openTrip; // last loaded, for the reminder settings
 
   Future<void> _refresh() async {
     final f = _load();
@@ -142,6 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'vehicles' => _open(const VehiclesScreen()),
         'users' => _open(const UsersScreen()),
         'appearance' => ThemeSettings.showPicker(context),
+        'reminders' => Reminders.showSettings(context, openTrip: _openTrip),
         _ => Db.signOut(),
       },
       itemBuilder: (_) => [
@@ -150,6 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
           item('users', Icons.people_outline, 'Drivers & users'),
           const PopupMenuDivider(),
         ],
+        item('reminders', Icons.notifications_outlined, 'Reminders'),
         item('appearance', ThemeSettings.icon(ThemeSettings.mode.value),
             'Appearance'),
         item('signout', Icons.logout, 'Sign out'),
