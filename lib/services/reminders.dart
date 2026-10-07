@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:geolocator/geolocator.dart' show Geolocator;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
@@ -32,6 +33,10 @@ class Reminders {
   static const _testId = 9999;
 
   static final enabled = ValueNotifier<bool>(true);
+
+  /// Whether the phone allows this app's notifications (null = not known yet).
+  /// Drives the "notifications are off" bar on the Home screen.
+  static final permission = ValueNotifier<bool?>(null);
   static final _plugin = FlutterLocalNotificationsPlugin();
   static tz.Location? _pkt;
   static bool _ready = false;
@@ -105,22 +110,60 @@ class Reminders {
             'If you drove today, make sure every trip is in Trip Logbook.');
   }
 
+  /// Shows the system "Allow notifications?" prompt (only appears if the
+  /// person hasn't answered yet), then records the result.
   static Future<bool> _askPermission() async {
-    if (Platform.isAndroid) {
-      return await _plugin
-              .resolvePlatformSpecificImplementation<
-                  AndroidFlutterLocalNotificationsPlugin>()
-              ?.requestNotificationsPermission() ??
-          false;
+    bool? ok;
+    try {
+      if (Platform.isAndroid) {
+        ok = await _plugin
+            .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>()
+            ?.requestNotificationsPermission();
+      } else if (Platform.isIOS) {
+        ok = await _plugin
+            .resolvePlatformSpecificImplementation<
+                IOSFlutterLocalNotificationsPlugin>()
+            ?.requestPermissions(alert: true, badge: true, sound: true);
+      }
+    } catch (_) {}
+    await checkPermission();
+    return (ok ?? false) || permission.value == true;
+  }
+
+  /// Reads the current permission without prompting. Call when the app
+  /// comes back to the foreground (the person may have changed Settings).
+  static Future<bool?> checkPermission() async {
+    if (!_ready) return null;
+    try {
+      bool? on;
+      if (Platform.isAndroid) {
+        on = await _plugin
+            .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>()
+            ?.areNotificationsEnabled();
+      } else if (Platform.isIOS) {
+        final opts = await _plugin
+            .resolvePlatformSpecificImplementation<
+                IOSFlutterLocalNotificationsPlugin>()
+            ?.checkPermissions();
+        on = opts == null ? null : (opts.isEnabled || opts.isProvisionalEnabled);
+      }
+      permission.value = on;
+      return on;
+    } catch (_) {
+      return null;
     }
-    if (Platform.isIOS) {
-      return await _plugin
-              .resolvePlatformSpecificImplementation<
-                  IOSFlutterLocalNotificationsPlugin>()
-              ?.requestPermissions(alert: true, badge: true, sound: true) ??
-          false;
+  }
+
+  /// "Allow" on the notifications-off bar: ask again, and if the phone won't
+  /// show the prompt any more (refused before), open the app's settings page.
+  static Future<void> requestOrOpenSettings({Trip? openTrip}) async {
+    if (await _askPermission()) {
+      await sync(openTrip: openTrip);
+    } else {
+      await Geolocator.openAppSettings();
     }
-    return false;
   }
 
   /// (Re)schedule both daily reminders. Called after every Home load.

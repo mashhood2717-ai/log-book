@@ -8,6 +8,7 @@ import '../services/reminders.dart';
 import '../services/theme_settings.dart';
 import '../widgets/animations.dart';
 import '../widgets/brand.dart';
+import '../widgets/notification_banner.dart';
 import '../widgets/trip_widgets.dart';
 import 'admin_trips_screen.dart';
 import 'edit_trip_screen.dart';
@@ -31,13 +32,14 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   late Future<_HomeData> _future;
   Timer? _tick; // keeps the "out for" timer on the open-trip card current
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _future = _load();
     _tick = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) setState(() {});
@@ -46,8 +48,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tick?.cancel();
     super.dispose();
+  }
+
+  /// Back from the phone's Settings? Re-check notifications, and schedule the
+  /// reminders if they were just allowed.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    final wasOff = Reminders.permission.value == false;
+    Reminders.checkPermission().then((on) {
+      if (wasOff && on == true) Reminders.sync(openTrip: _openTrip);
+    });
   }
 
   Future<_HomeData> _load() async {
@@ -128,10 +142,15 @@ class _HomeScreenState extends State<HomeScreen> {
               _menu(isAdmin: data?.profile.isAdmin == true),
             ],
           ),
-          body: RefreshIndicator(
-            onRefresh: _refresh,
-            child: _body(snap),
-          ),
+          body: Column(children: [
+            NotificationBanner(openTrip: data?.openTrip),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _refresh,
+                child: _body(snap),
+              ),
+            ),
+          ]),
         );
       },
     );
