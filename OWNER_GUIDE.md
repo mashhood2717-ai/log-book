@@ -151,7 +151,7 @@ Keep these in one Drive folder, e.g. `Trip Logbook Backups/2026-10`.
 | Built with | Flutter (Dart) + Supabase |
 | App ID | `com.weatherwalay.trip_logbook` |
 | Current version | see `version:` in `pubspec.yaml` |
-| Distributed as | APK file, installed by hand (not on the Play Store) |
+| Distributed as | Android: APK file, installed by hand. iPhone: `.ipa` built by Codemagic, installed with Sideloadly – see §6b |
 
 ⚠️ **The code folder is not backed up and is not in git.** If this computer dies, the code is gone (the data in Supabase is safe). Back it up by either:
 - zipping `D:\trip_logbook` (you can skip the `build` and `.dart_tool` folders) to Google Drive after each change, or
@@ -191,6 +191,25 @@ If you change the code, paste the new version in Supabase → Edge Functions →
 If the database design changed, also run the new `supabase/schema.sql` in **Supabase → SQL Editor** first. It is safe to run again; it only adds what is missing.
 
 ---
+
+## 6b. iPhone (Codemagic + Sideloadly)
+
+iPhone apps can only be built on a Mac, so the iPhone version is built in the cloud by **Codemagic** using `codemagic.yaml`.
+
+**Build** (codemagic.io, free Mac build minutes each month):
+1. Sign in with GitHub → **Add application** → choose the `log-book` repository (Flutter App).
+2. Codemagic finds `codemagic.yaml` → workflow **iOS for Sideloadly** → **Start new build** → branch `main`.
+3. After ~10–15 minutes, open the build → **Artifacts** → download `TripLogbook-x.y.z-unsigned.ipa`.
+
+Pushing to `main` starts a new build automatically.
+
+**Install** (Windows PC + iPhone with a cable):
+1. Install **iTunes** (from apple.com, not the Microsoft Store version) and **Sideloadly** (sideloadly.io).
+2. Connect the iPhone, tap **Trust** on the phone.
+3. Sideloadly: drag in the `.ipa`, enter your Apple ID, click **Start**.
+4. On the iPhone: **Settings → General → VPN & Device Management** → your Apple ID → **Trust**. On iOS 16+ also turn on **Settings → Privacy & Security → Developer Mode** (the phone restarts).
+
+**Limits of a free Apple ID:** the app stops opening after **7 days** – reinstall with Sideloadly (your trips are safe on the server; just sign in again if asked). Max 3 sideloaded apps per phone. A paid Apple Developer account ($99/year) extends this to 1 year and allows TestFlight, which is much easier for giving the app to several iPhone drivers.
 
 ## 7. If something goes wrong
 

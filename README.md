@@ -72,6 +72,25 @@ Sign in as admin → tap the car icon → **Add vehicle** (reg no, model, curren
 - The driver is asked for location permission the first time. If GPS is off or there is no fix (e.g. indoors), the driver can retry or continue; the trip then shows **"Not captured"** for you, so you can follow up.
 - In the CSV export, start/end locations are Google Maps links.
 
+## iPhone (Codemagic + Sideloadly)
+
+iPhone apps can only be built on a Mac, so the iPhone version is built in the cloud by **Codemagic** using `codemagic.yaml`.
+
+**Build** (codemagic.io, free Mac build minutes each month):
+1. Sign in with GitHub → **Add application** → choose the `log-book` repository (Flutter App).
+2. Codemagic finds `codemagic.yaml` → workflow **iOS for Sideloadly** → **Start new build** → branch `main`.
+3. After ~10–15 minutes, open the build → **Artifacts** → download `TripLogbook-x.y.z-unsigned.ipa`.
+
+Pushing to `main` starts a new build automatically.
+
+**Install** (Windows PC + iPhone with a cable):
+1. Install **iTunes** (from apple.com, not the Microsoft Store version) and **Sideloadly** (sideloadly.io).
+2. Connect the iPhone, tap **Trust** on the phone.
+3. Sideloadly: drag in the `.ipa`, enter your Apple ID, click **Start**.
+4. On the iPhone: **Settings → General → VPN & Device Management** → your Apple ID → **Trust**. On iOS 16+ also turn on **Settings → Privacy & Security → Developer Mode** (the phone restarts).
+
+**Limits of a free Apple ID:** the app stops opening after **7 days** – reinstall with Sideloadly (your trips are safe on the server; just sign in again if asked). Max 3 sideloaded apps per phone. A paid Apple Developer account ($99/year) extends this to 1 year and allows TestFlight, which is much easier for giving the app to several iPhone drivers.
+
 ## Rules enforced by the backend (not just the app)
 
 - A driver sees and edits **only their own** trips; admin sees everything.
