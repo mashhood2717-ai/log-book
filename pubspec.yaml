@@ -1,7 +1,7 @@
 name: trip_logbook
 description: Vehicle trip logbook for drivers (start/end mileage, purpose, fuel, notes).
 publish_to: 'none'
-version: 1.4.1+8
+version: 1.4.2+9
 
 environment:
   sdk: ">=3.4.0 <4.0.0"

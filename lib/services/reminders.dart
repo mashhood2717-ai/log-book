@@ -133,8 +133,8 @@ class Reminders {
 
   /// Reads the current permission without prompting. Call when the app
   /// comes back to the foreground (the person may have changed Settings).
+  /// Works even if [init] failed, so the bar can still warn people.
   static Future<bool?> checkPermission() async {
-    if (!_ready) return null;
     try {
       bool? on;
       if (Platform.isAndroid) {
