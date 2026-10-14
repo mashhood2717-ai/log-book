@@ -119,7 +119,7 @@ If alerts stop arriving:
 3. The Firebase key is stored as the secret `FCM_SERVICE_ACCOUNT` (Supabase → Edge Functions → Secrets). If you delete/regenerate the key in Firebase, paste the new one there.
 
 ### Daily reminders
-Every signed-in phone reminds the driver at **11:00 AM and 5:00 PM (Pakistan time)** to log their trips. Each person can turn them off or send a test in **⋮ → Reminders**. If a reminder never arrives, check the phone's **Settings → Apps → Trip Logbook → Notifications** is allowed (and on some phones, turn off battery optimisation for the app).
+Every signed-in phone reminds the driver **Monday–Friday every hour from 9 AM to 6 PM, and at 11 AM and 5 PM on Saturday and Sunday** (Pakistan time) to log their trips. Each person can turn them off or send a test in **⋮ → Reminders**. If a reminder never arrives, check the phone's **Settings → Apps → Trip Logbook → Notifications** is allowed (and on some phones, turn off battery optimisation for the app).
 
 ### Add / retire a vehicle
 In the app, as admin: **car icon** → **Add vehicle**, or tap a vehicle to edit it. Use the switch to make a sold or retired vehicle inactive (its history stays).

@@ -48,7 +48,7 @@ class NotificationBanner extends StatelessWidget {
               Text('Notifications are off',
                   style: TextStyle(
                       fontWeight: FontWeight.w800, color: c.amberText)),
-              Text('You won\'t get the 11 AM and 5 PM trip reminders.',
+              Text('You won\'t get your trip reminders.',
                   style: TextStyle(color: c.ink, fontSize: 13)),
             ],
           ),

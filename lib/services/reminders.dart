@@ -15,21 +15,45 @@ import '../widgets/trip_widgets.dart';
 
 /// One daily reminder: when it fires (Pakistan time) and what it says.
 class ReminderSlot {
-  final int id, hour, minute;
-  const ReminderSlot(this.id, this.hour, this.minute);
-  String get label {
-    final h = hour % 12 == 0 ? 12 : hour % 12;
-    return '$h:${minute.toString().padLeft(2, '0')} ${hour < 12 ? 'AM' : 'PM'}';
-  }
+  final int weekday; // DateTime.monday (1) … DateTime.sunday (7)
+  final int hour; // 24h, Pakistan time
+  final bool lastOfDay; // the "have you logged today's trips?" one
+  const ReminderSlot(this.weekday, this.hour, {this.lastOfDay = false});
+
+  /// Stable id per weekday + hour, e.g. Monday 9 AM = 109.
+  int get id => weekday * 100 + hour;
+
+  String get label => hourLabel(hour);
+  static String hourLabel(int hour) =>
+      '${hour % 12 == 0 ? 12 : hour % 12} ${hour < 12 ? 'AM' : 'PM'}';
 }
 
-/// Daily "remember to log your trip" notifications at 11 AM and 5 PM PKT.
+/// "Remember to log your trip" notifications, Pakistan time:
+/// Monday–Friday every hour 9 AM–6 PM, Saturday–Sunday 11 AM and 5 PM.
 ///
-/// Scheduled on the phone itself (no server), repeat every day, and survive
-/// restarts. The text is refreshed whenever the app loads, so it can mention
-/// a trip that is still open.
+/// Scheduled on the phone itself (no server), each repeating weekly, and
+/// they survive restarts. The text is refreshed whenever the app loads, so
+/// it can mention a trip that is still open.
 class Reminders {
-  static const slots = [ReminderSlot(1100, 11, 0), ReminderSlot(1700, 17, 0)];
+  static const officeStart = 9, officeEnd = 18; // weekdays, inclusive
+  static const weekendHours = [11, 17];
+
+  static final List<ReminderSlot> slots = [
+    for (var d = DateTime.monday; d <= DateTime.friday; d++)
+      for (var h = officeStart; h <= officeEnd; h++)
+        ReminderSlot(d, h, lastOfDay: h == officeEnd),
+    for (final d in [DateTime.saturday, DateTime.sunday])
+      for (final h in weekendHours)
+        ReminderSlot(d, h, lastOfDay: h == weekendHours.last),
+  ];
+
+  /// Shown in settings and the test notification.
+  static String get scheduleText =>
+      'Mon–Fri every hour, ${ReminderSlot.hourLabel(officeStart)}–${ReminderSlot.hourLabel(officeEnd)} · '
+      'Sat–Sun ${weekendHours.map(ReminderSlot.hourLabel).join(' & ')} (Pakistan time)';
+
+  /// Ids used by the first version (daily 11 AM / 5 PM) – cancelled on update.
+  static const _legacyIds = [1100, 1700];
   static const _prefKey = 'reminders_enabled';
   static const _testId = 9999;
 
@@ -54,7 +78,7 @@ class Reminders {
     android: AndroidNotificationDetails(
       'trip_reminders',
       'Trip reminders',
-      channelDescription: 'Daily reminders to log your trips',
+      channelDescription: 'Reminders to log your trips',
       importance: Importance.high,
       priority: Priority.high,
       icon: 'ic_stat_reminder',
@@ -86,29 +110,33 @@ class Reminders {
     }
   }
 
-  /// Next [hour]:[minute] in Pakistan time, strictly after [now].
-  static tz.TZDateTime nextPkt(int hour, int minute, {DateTime? now}) {
+  /// Next [weekday] at [hour]:00 in Pakistan time, strictly after [now].
+  static tz.TZDateTime nextPkt(int weekday, int hour, {DateTime? now}) {
+    RangeError.checkValueInInterval(weekday, DateTime.monday, DateTime.sunday, 'weekday');
+    RangeError.checkValueInInterval(hour, 0, 23, 'hour');
     final n = tz.TZDateTime.from(now ?? DateTime.now(), pkt);
-    var t = tz.TZDateTime(pkt, n.year, n.month, n.day, hour, minute);
-    if (!t.isAfter(n)) t = t.add(const Duration(days: 1));
+    var t = tz.TZDateTime(pkt, n.year, n.month, n.day, hour);
+    while (t.weekday != weekday || !t.isAfter(n)) {
+      t = tz.TZDateTime(pkt, t.year, t.month, t.day + 1, hour);
+    }
     return t;
   }
 
   /// Title and text for a reminder, depending on whether a trip is open.
   static (String, String) message(ReminderSlot slot, Trip? openTrip) {
-    final morning = slot.hour < 12;
     if (openTrip != null) {
       final where = '${openTrip.vehicleRegNo} → ${openTrip.destination}';
-      return morning
-          ? ('Trip still open',
-              '$where has been open since ${dateTimeFmt.format(openTrip.startTime)}. End it when you are back.')
-          : ('Back yet?', 'Your trip $where is still open. Tap to end it.');
+      return (
+        slot.lastOfDay ? 'Trip still open' : 'Back yet?',
+        '$where is still open (since ${dateTimeFmt.format(openTrip.startTime)}). '
+            'End it when you\'re back.'
+      );
     }
-    return morning
-        ? ('Going out today?',
-            'Start your trip in Trip Logbook before you leave.')
-        : ('Logged today\'s trips?',
-            'If you drove today, make sure every trip is in Trip Logbook.');
+    if (slot.lastOfDay) {
+      return ('Logged today\'s trips?',
+          'If you drove today, make sure every trip is in Trip Logbook.');
+    }
+    return ('Going out?', 'Start your trip in Trip Logbook before you leave.');
   }
 
   /// Shows the system "Allow notifications?" prompt (only appears if the
@@ -171,8 +199,8 @@ class Reminders {
   static Future<void> sync({Trip? openTrip}) async {
     if (!_ready) return;
     try {
-      for (final s in slots) {
-        await _plugin.cancel(id: s.id);
+      for (final id in [..._legacyIds, ...slots.map((s) => s.id)]) {
+        await _plugin.cancel(id: id);
       }
       if (!enabled.value) return;
       await _askPermission();
@@ -190,10 +218,10 @@ class Reminders {
           id: s.id,
           title: title,
           body: body,
-          scheduledDate: nextPkt(s.hour, s.minute),
+          scheduledDate: nextPkt(s.weekday, s.hour),
           notificationDetails: _details,
           androidScheduleMode: mode,
-          matchDateTimeComponents: DateTimeComponents.time, // every day
+          matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime, // weekly
         );
     try {
       // On time, even when the phone is idle.
@@ -228,8 +256,7 @@ class Reminders {
     await _plugin.show(
       id: _testId,
       title: 'Test reminder',
-      body: 'Reminders are working. You will get them at '
-          '${slots.map((s) => s.label).join(' and ')} (Pakistan time).',
+      body: 'Reminders are working. Schedule: $scheduleText.',
       notificationDetails: _details,
     );
     return true;
@@ -253,9 +280,8 @@ class Reminders {
                   contentPadding: EdgeInsets.zero,
                   value: on,
                   onChanged: (v) => setEnabled(v, openTrip: openTrip),
-                  title: const Text('Daily reminders'),
-                  subtitle: Text(
-                      '${slots.map((s) => s.label).join(' and ')} Pakistan time'),
+                  title: const Text('Trip reminders'),
+                  subtitle: Text(scheduleText),
                 ),
                 const SizedBox(height: 4),
                 Text(

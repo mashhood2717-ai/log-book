@@ -67,7 +67,8 @@ Sign in as admin → tap the car icon → **Add vehicle** (reg no, model, curren
 
 ## Trip reminders
 
-- Every signed-in phone gets a notification **daily at 11:00 AM and 5:00 PM Pakistan time** (whatever time zone the phone is set to): a reminder to start a trip before leaving, and to check every trip is logged. If a trip is still open, the reminder says so.
+- Every signed-in phone gets a notification **Monday–Friday every hour from 9 AM to 6 PM, and Saturday–Sunday at 11 AM and 5 PM (Pakistan time)** (whatever time zone the phone is set to): a reminder to start a trip before leaving, and to check every trip is logged. If a trip is still open, the reminder says so.
+- To change the times, edit `officeStart`, `officeEnd` and `weekendHours` in `lib/services/reminders.dart` (54 weekly reminders today; iPhone allows at most 64).
 - Scheduled on the phone itself (`lib/services/reminders.dart`, flutter_local_notifications) – no server; they keep working after a restart. Turn off / send a test under **⋮ → Reminders**. Signing out stops them.
 - Android uses exact alarms (`USE_EXACT_ALARM`), fine for a sideloaded APK; a Play Store release would need to justify that permission or fall back to inexact delivery (already handled in code).
 
