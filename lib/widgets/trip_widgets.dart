@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config.dart';
 import '../models.dart';
 import '../screens/edit_trip_screen.dart';
+import '../screens/route_screen.dart';
 import '../services/db.dart';
 import 'brand.dart';
 
@@ -228,6 +229,14 @@ Future<bool> showTripDetails(BuildContext context, Trip t) async {
                 (t.notes == null || t.notes!.isEmpty) ? '–' : t.notes!),
             if (t.editedAt != null)
               row('Last edited', dateTimeFmt.format(t.editedAt!)),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.pop(sheet, 'route'),
+              icon: const Icon(Icons.route),
+              label: Text(t.isOngoing ? 'Live location & route' : 'View route on map'),
+              style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48)),
+            ),
             if (canEdit || Db.isAdmin) ...[
               const SizedBox(height: 16),
               Row(children: [
@@ -281,6 +290,12 @@ Future<bool> showTripDetails(BuildContext context, Trip t) async {
     ),
   );
   if (!context.mounted || action == null) return false;
+
+  if (action == 'route') {
+    await Navigator.push(
+        context, MaterialPageRoute(builder: (_) => RouteScreen(trip: t)));
+    return false;
+  }
 
   if (action == 'edit') {
     final saved = await Navigator.push<bool>(context,

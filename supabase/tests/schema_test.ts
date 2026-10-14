@@ -22,6 +22,7 @@ await db.exec(`
   grant usage on schema public, auth to authenticated;
   grant all on all tables in schema public to authenticated;
   grant execute on all functions in schema public, auth to authenticated;
+  grant usage on schema public to anon;
 `);
 
 const ADMIN = "00000000-0000-0000-0000-00000000000a";
@@ -138,6 +139,73 @@ try {
   await db.query(`select register_device_token('x')`);
 } catch { anonBlocked = true; } finally { await db.exec(`reset role;`); }
 check("signed-out visitors can't register tokens", anonBlocked);
+
+// --- 8. Live location points ------------------------------------------------
+const OTHER = "00000000-0000-0000-0000-0000000000d2";
+await db.exec(`insert into auth.users values ('${OTHER}', 'sara@x.com', '{"full_name":"Sara"}');
+  insert into public.vehicles (reg_no, last_odometer) values ('LEB-2', 500);`);
+const pt = (trip: unknown, mins = 0) =>
+  `insert into trip_points (trip_id, recorded_at, lat, lng)
+   values (${trip}, now() - interval '${mins} minutes', 34.0, 71.5) returning id`;
+const [live] = await as(DRIVER, `insert into trips (vehicle_id, start_mileage, purpose, destination)
+  values (2, 500, 'P', 'Mardan') returning id`);
+check("driver can add points to own open trip", (await as(DRIVER, pt(live.id))).length === 1);
+let blocked = false;
+try { await as(OTHER, pt(live.id)); } catch { blocked = true; }
+check("another driver can't add points to it", blocked);
+check("admin sees the route", (await as(ADMIN, `select * from trip_points where trip_id=${live.id}`)).length === 1);
+check("other driver can't see the route",
+  (await as(OTHER, `select * from trip_points where trip_id=${live.id}`)).length === 0);
+await as(DRIVER, pt(live.id, -1)); // newer point
+const last = await as(ADMIN, `select * from trip_last_point where trip_id=${live.id}`);
+check("latest position view returns one, newest point",
+  last.length === 1 && new Date(last[0].recorded_at as string) > new Date(Date.now() - 1000));
+check("driver can't edit points",
+  (await as(DRIVER, `update trip_points set lat=0 where trip_id=${live.id} returning id`)).length === 0);
+check("driver can't delete points",
+  (await as(DRIVER, `delete from trip_points where trip_id=${live.id} returning id`)).length === 0);
+await as(DRIVER, `update trips set status='completed', end_mileage=520 where id=${live.id}`);
+check("saved-up points still upload just after the trip ends",
+  (await as(DRIVER, pt(live.id, 2))).length === 1);
+await db.exec(`alter table trips disable trigger trips_guard;
+  update trips set end_time = now() - interval '45 minutes', start_time = now() - interval '2 hours' where id=${live.id};
+  alter table trips enable trigger trips_guard;`);
+blocked = false;
+try { await as(DRIVER, pt(live.id)); } catch { blocked = true; }
+check("…but not long after it ended", blocked);
+await as(ADMIN, `delete from trips where id=${live.id}`);
+check("deleting a trip removes its route",
+  (await one(`select count(*)::int n from trip_points where trip_id=${live.id}`)).n === 0);
+
+// --- 9. Background uploads with the trip's tracking key ---------------------
+const [kt] = await as(DRIVER, `insert into trips (vehicle_id, start_mileage, purpose, destination)
+  values (2, 520, 'P', 'Swabi') returning id, tracking_key`);
+check("each trip gets a tracking key", typeof kt.tracking_key === "string" && (kt.tracking_key as string).length === 32);
+const pts = `'[{"recorded_at":"${new Date().toISOString()}","lat":34.1,"lng":71.6,"accuracy":8,"speed":12.5}]'::jsonb`;
+const asAnon = async (sql: string) => {
+  await db.exec(`set role anon; select set_config('request.jwt.claim.sub', '', false);`);
+  try { return (await db.query(sql)).rows as Record<string, unknown>[]; }
+  finally { await db.exec(`reset role;`); }
+};
+const added = await asAnon(`select add_trip_points(${kt.id}, '${kt.tracking_key}', ${pts}) n`);
+check("background service can upload with the key (no login)", added[0]?.n === 1);
+const saved = await one(`select driver_id, speed from trip_points where trip_id=${kt.id}`);
+check("…points are filed under the trip's driver", saved.driver_id === DRIVER && saved.speed === 12.5);
+blocked = false;
+try { await asAnon(`select add_trip_points(${kt.id}, 'wrong-key', ${pts})`); } catch { blocked = true; }
+check("wrong key is refused", blocked);
+await as(DRIVER, `update trips set tracking_key='hacked' where id=${kt.id}`);
+check("nobody can change a trip's key",
+  (await one(`select tracking_key from trips where id=${kt.id}`)).tracking_key === kt.tracking_key);
+check("other drivers can't read the key",
+  (await as(OTHER, `select tracking_key from trips where id=${kt.id}`)).length === 0);
+await as(DRIVER, `update trips set status='completed', end_mileage=540 where id=${kt.id}`);
+await db.exec(`alter table trips disable trigger trips_guard;
+  update trips set end_time = now() - interval '45 minutes', start_time = now() - interval '2 hours' where id=${kt.id};
+  alter table trips enable trigger trips_guard;`);
+blocked = false;
+try { await asAnon(`select add_trip_points(${kt.id}, '${kt.tracking_key}', ${pts})`); } catch { blocked = true; }
+check("key stops working after the trip is closed", blocked);
 
 console.log(failures ? `\n${failures} FAILED` : "\nALL PASSED");
 Deno.exit(failures ? 1 : 0);

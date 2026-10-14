@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../config.dart';
 import '../models.dart';
 import '../services/db.dart';
+import '../services/location_tracker.dart';
 import '../widgets/location_capture.dart';
 import '../widgets/trip_widgets.dart';
 
@@ -78,6 +79,7 @@ class _EndTripScreenState extends State<EndTripScreen> {
         notes: _notes.text,
         location: point,
       );
+      await LocationTracker.stop(); // uploads any saved-up points
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {

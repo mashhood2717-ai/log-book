@@ -43,6 +43,42 @@ class GeoPoint {
       '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}';
 }
 
+/// One GPS point recorded during a trip (table trip_points).
+class TrackPoint {
+  final int tripId;
+  final DateTime recordedAt;
+  final double lat, lng;
+  final double? accuracy; // metres
+  final double? speed; // metres / second
+
+  const TrackPoint({
+    required this.tripId,
+    required this.recordedAt,
+    required this.lat,
+    required this.lng,
+    this.accuracy,
+    this.speed,
+  });
+
+  factory TrackPoint.fromMap(Map<String, dynamic> m) => TrackPoint(
+        tripId: _toInt(m['trip_id'])!,
+        recordedAt: _toDate(m['recorded_at'])!,
+        lat: _toDouble(m['lat'])!,
+        lng: _toDouble(m['lng'])!,
+        accuracy: _toDouble(m['accuracy']),
+        speed: _toDouble(m['speed']),
+      );
+
+  Map<String, dynamic> toMap() => {
+        'trip_id': tripId,
+        'recorded_at': recordedAt.toUtc().toIso8601String(),
+        'lat': lat,
+        'lng': lng,
+        'accuracy': accuracy,
+        'speed': speed,
+      };
+}
+
 class Profile {
   final String id;
   final String fullName;
@@ -138,6 +174,7 @@ class Trip {
   final GeoPoint? startLocation;
   final GeoPoint? endLocation;
   final DateTime? editedAt; // set when a finished trip was corrected
+  final String? trackingKey; // lets the phone upload route points
 
   Trip({
     required this.id,
@@ -159,6 +196,7 @@ class Trip {
     this.startLocation,
     this.endLocation,
     this.editedAt,
+    this.trackingKey,
   });
 
   bool get isOngoing => status == 'ongoing';
@@ -192,6 +230,7 @@ class Trip {
       startLocation: GeoPoint.fromColumns(m, 'start'),
       endLocation: GeoPoint.fromColumns(m, 'end'),
       editedAt: _toDate(m['edited_at']),
+      trackingKey: m['tracking_key'] as String?,
     );
   }
 }

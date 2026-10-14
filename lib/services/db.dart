@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models.dart';
+import 'location_tracker.dart';
 import 'reminders.dart';
 import 'trip_alerts.dart';
 
@@ -27,6 +28,7 @@ class Db {
 
   static Future<void> signOut() async {
     await TripAlerts.unregister(); // while still signed in
+    await LocationTracker.stop(); // uploads any saved-up route points first
     me = null;
     await Reminders.cancelAll(); // this phone should stop reminding
     await _c.auth.signOut();
@@ -136,21 +138,28 @@ class Db {
     return rows.map(Trip.fromMap).toList();
   }
 
-  static Future<void> startTrip({
+  /// Returns the new trip's id and tracking key (to start route tracking).
+  static Future<(int, String)> startTrip({
     required int vehicleId,
     required int startMileage,
     required String purpose,
     required String destination,
     GeoPoint? location,
-  }) =>
-      _c.from('trips').insert({
-        'driver_id': uid,
-        'vehicle_id': vehicleId,
-        'start_mileage': startMileage,
-        'purpose': purpose.trim(),
-        'destination': destination.trim(),
-        ...?location?.toColumns('start'),
-      });
+  }) async {
+    final row = await _c
+        .from('trips')
+        .insert({
+          'driver_id': uid,
+          'vehicle_id': vehicleId,
+          'start_mileage': startMileage,
+          'purpose': purpose.trim(),
+          'destination': destination.trim(),
+          ...?location?.toColumns('start'),
+        })
+        .select('id, tracking_key')
+        .single();
+    return ((row['id'] as num).toInt(), row['tracking_key'] as String);
+  }
 
   static Future<void> endTrip({
     required int tripId,
@@ -212,6 +221,33 @@ class Db {
     if (rows.isEmpty) {
       throw AppException('Trip not deleted – it may already be gone.');
     }
+  }
+
+  // ---------------- Routes (live location) ----------------
+  /// Every recorded point of a trip, oldest first.
+  static Future<List<TrackPoint>> tripPoints(int tripId) async {
+    final pts = <TrackPoint>[];
+    const page = 1000;
+    while (true) {
+      final rows = await _c
+          .from('trip_points')
+          .select('trip_id, recorded_at, lat, lng, accuracy, speed')
+          .eq('trip_id', tripId)
+          .order('recorded_at')
+          .range(pts.length, pts.length + page - 1);
+      pts.addAll(rows.map(TrackPoint.fromMap));
+      if (rows.length < page) return pts;
+    }
+  }
+
+  /// Latest known position of each of [tripIds].
+  static Future<Map<int, TrackPoint>> lastPositions(List<int> tripIds) async {
+    if (tripIds.isEmpty) return {};
+    final rows = await _c
+        .from('trip_last_point')
+        .select('trip_id, recorded_at, lat, lng, accuracy, speed')
+        .inFilter('trip_id', tripIds);
+    return {for (final r in rows.map(TrackPoint.fromMap)) r.tripId: r};
   }
 
   // ---------------- Trips (admin) ----------------

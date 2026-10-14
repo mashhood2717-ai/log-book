@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models.dart';
 import '../services/db.dart';
+import '../services/location_tracker.dart';
 import '../widgets/brand.dart';
 import '../widgets/location_capture.dart';
 import '../widgets/trip_widgets.dart';
@@ -92,13 +95,15 @@ class _StartTripScreenState extends State<StartTripScreen> {
     try {
       final (proceed, point) = await _location.resolve(context);
       if (!proceed) return;
-      await Db.startTrip(
+      final (tripId, key) = await Db.startTrip(
         vehicleId: v.id,
         startMileage: start,
         purpose: _purpose.text,
         destination: _destination.text,
         location: point,
       );
+      // Record the route while the trip is open.
+      unawaited(LocationTracker.start(tripId, key));
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
@@ -188,6 +193,13 @@ class _StartTripScreenState extends State<StartTripScreen> {
                 ),
                 const SizedBox(height: 8),
                 LocationStatusTile(_location),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                  child: Text(
+                    'While this trip is open, your location is shared with your admin about once a minute. It stops when you end the trip.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
                 const SizedBox(height: 16),
                 FilledButton.icon(
                   onPressed: _busy ? null : _submit,

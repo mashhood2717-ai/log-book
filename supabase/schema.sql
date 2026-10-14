@@ -85,6 +85,11 @@ alter table public.trips add column if not exists end_lat        double precisio
 alter table public.trips add column if not exists end_lng        double precision;
 alter table public.trips add column if not exists end_accuracy   real;  -- metres
 
+-- Secret per trip that lets the driver's phone upload route points from a
+-- background service without the driver's login (see add_trip_points).
+alter table public.trips add column if not exists tracking_key text not null
+  default replace(gen_random_uuid()::text, '-', '');
+
 -- Set when a finished trip is corrected afterwards (shown as "Edited" in the app)
 alter table public.trips add column if not exists edited_at timestamptz;
 
@@ -109,6 +114,7 @@ begin
     new.end_time := null; new.end_mileage := null;
     new.end_lat := null; new.end_lng := null; new.end_accuracy := null;
   else -- UPDATE
+    new.tracking_key := old.tracking_key; -- fixed for the life of the trip
     if not public.is_admin() then
       new.driver_id  := old.driver_id;
       new.start_time := old.start_time;
@@ -303,6 +309,85 @@ end $$;
 drop trigger if exists trips_notify_admins on public.trips;
 create trigger trips_notify_admins after insert or update on public.trips
   for each row execute function public.trips_notify_admins();
+
+-- ---------- LIVE LOCATION / ROUTES ------------------------------------
+-- While a trip is open the driver's phone records a GPS point about once a
+-- minute. Admins see the live position and the route; drivers their own.
+
+create table if not exists public.trip_points (
+  id           bigint generated always as identity primary key,
+  trip_id      bigint not null references public.trips(id) on delete cascade,
+  driver_id    uuid not null default auth.uid() references public.profiles(id),
+  recorded_at  timestamptz not null,           -- when the phone took the fix
+  lat          double precision not null check (lat between -90 and 90),
+  lng          double precision not null check (lng between -180 and 180),
+  accuracy     real,                           -- metres
+  speed        real,                           -- metres / second
+  created_at   timestamptz not null default now()
+);
+create index if not exists trip_points_trip_time_idx
+  on public.trip_points (trip_id, recorded_at desc);
+
+alter table public.trip_points enable row level security;
+
+drop policy if exists trip_points_select on public.trip_points;
+create policy trip_points_select on public.trip_points for select to authenticated
+  using (driver_id = auth.uid() or public.is_admin());
+
+-- Drivers add points only to their own trip while it is open – plus 30 min
+-- after ending, so points saved up without signal can still be uploaded.
+drop policy if exists trip_points_insert on public.trip_points;
+create policy trip_points_insert on public.trip_points for insert to authenticated
+  with check (
+    driver_id = auth.uid()
+    and exists (
+      select 1 from public.trips t
+       where t.id = trip_id and t.driver_id = auth.uid()
+         and (t.status = 'ongoing' or t.end_time > now() - interval '30 minutes')
+    )
+  );
+-- No update/delete policies: route points can't be altered (admins delete
+-- the whole trip, which removes its points).
+
+-- Upload route points with the trip's tracking key. Works without a login so
+-- the background tracking service keeps going if the app is swiped away.
+-- Only for that trip, only while it's open (or ended < 30 min ago).
+create or replace function public.add_trip_points(p_trip_id bigint, p_key text, p_points jsonb)
+returns integer language plpgsql security definer set search_path = public as $$
+declare
+  t record;
+  n integer;
+begin
+  select id, driver_id, status, end_time, tracking_key into t
+    from public.trips where id = p_trip_id;
+  if t.id is null or t.tracking_key is distinct from p_key then
+    raise exception 'Unknown trip or wrong tracking key' using errcode = '42501';
+  end if;
+  if not (t.status = 'ongoing' or t.end_time > now() - interval '30 minutes') then
+    raise exception 'Trip is closed' using errcode = '42501';
+  end if;
+  if jsonb_typeof(p_points) <> 'array' or jsonb_array_length(p_points) > 500 then
+    raise exception 'Send between 1 and 500 points' using errcode = '22023';
+  end if;
+
+  insert into public.trip_points (trip_id, driver_id, recorded_at, lat, lng, accuracy, speed)
+  select p_trip_id, t.driver_id,
+         (e->>'recorded_at')::timestamptz, (e->>'lat')::float8, (e->>'lng')::float8,
+         (e->>'accuracy')::real, (e->>'speed')::real
+    from jsonb_array_elements(p_points) e
+   where (e->>'recorded_at')::timestamptz <= now() + interval '5 minutes';
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
+revoke all on function public.add_trip_points(bigint, text, jsonb) from public;
+grant execute on function public.add_trip_points(bigint, text, jsonb) to anon, authenticated;
+
+-- Latest known position of each trip (Fleet status map).
+create or replace view public.trip_last_point with (security_invoker = on) as
+  select distinct on (trip_id) trip_id, lat, lng, accuracy, speed, recorded_at
+    from public.trip_points
+   order by trip_id, recorded_at desc;
 
 -- =====================================================================
 --  AFTER running this file:

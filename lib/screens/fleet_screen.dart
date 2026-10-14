@@ -7,13 +7,17 @@ import '../models.dart';
 import '../services/db.dart';
 import '../widgets/animations.dart';
 import '../widgets/brand.dart';
+import '../widgets/trip_map.dart';
 import '../widgets/trip_widgets.dart';
+import 'fleet_map_screen.dart';
 
 class _FleetData {
   final List<(Vehicle, Trip)> out;
   final List<Vehicle> available;
+  final Map<int, TrackPoint> lastSeen; // trip id -> latest route point
   final DateTime loadedAt;
-  _FleetData(this.out, this.available) : loadedAt = DateTime.now();
+  _FleetData(this.out, this.available, this.lastSeen)
+      : loadedAt = DateTime.now();
 }
 
 /// Admin: which vehicles are out right now, with whom, where to and since when.
@@ -59,7 +63,11 @@ class _FleetScreenState extends State<FleetScreen> {
     }
     // Longest-out first – those are the ones to ask about.
     out.sort((a, b) => a.$2.startTime.compareTo(b.$2.startTime));
-    return _FleetData(out, available);
+    Map<int, TrackPoint> seen = {};
+    try {
+      seen = await Db.lastPositions(out.map((e) => e.$2.id).toList());
+    } catch (_) {} // the board still works without live positions
+    return _FleetData(out, available, seen);
   }
 
   Future<void> _refresh() async {
@@ -82,6 +90,11 @@ class _FleetScreenState extends State<FleetScreen> {
       appBar: AppBar(
         title: const Text('Fleet status'),
         actions: [
+          IconButton(
+              tooltip: 'Live map',
+              icon: const Icon(Icons.map_outlined),
+              onPressed: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const FleetMapScreen()))),
           IconButton(
               tooltip: 'Refresh',
               icon: const Icon(Icons.refresh),
@@ -260,10 +273,34 @@ class _FleetScreenState extends State<FleetScreen> {
                   style: muted),
               const SizedBox(height: 4),
               LocationLink(t.startLocation),
+              _lastSeen(t),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  /// "📍 Last seen 3 min ago" from the live route, if the phone sent any.
+  Widget _lastSeen(Trip t) {
+    final p = _data?.lastSeen[t.id];
+    final c = context.colors;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(children: [
+        Icon(p == null ? Icons.location_disabled : Icons.my_location,
+            size: 16, color: p == null ? c.amberText : c.accent),
+        const SizedBox(width: 4),
+        Text(
+          p == null
+              ? 'No live location yet'
+              : 'Last seen ${agoText(p.recordedAt)} · tap for route',
+          style: TextStyle(
+              fontSize: 13,
+              color: p == null ? c.amberText : c.accent,
+              fontWeight: FontWeight.w600),
+        ),
+      ]),
     );
   }
 

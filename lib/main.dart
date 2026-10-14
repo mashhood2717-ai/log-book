@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'services/location_tracker.dart';
 import 'services/reminders.dart';
 import 'services/theme_settings.dart';
 import 'widgets/brand.dart';
@@ -19,6 +20,7 @@ Future<void> main() async {
   );
   await ThemeSettings.load();
   await Reminders.init();
+  LocationTracker.initMain();
   runApp(const LogbookApp());
 }
 

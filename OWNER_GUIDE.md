@@ -110,6 +110,13 @@ Tap the driver → **Block**. They can no longer sign in, and their trips stay i
 
 > Behind the scenes this uses the `admin-users` Edge Function (see [§6](#6-the-app-and-its-code)). The same tasks can still be done by hand in the Supabase dashboard (Authentication → Users, Table Editor → profiles) if ever needed.
 
+### Live location of drivers
+- **Fleet status → map icon** shows where every vehicle that's out is right now. Tap a car for driver, destination, "last seen", and its route.
+- Any trip → **View route on map** shows the route, GPS distance vs odometer, and times when no location was received.
+- Location is recorded **only while a trip is open**, about once a minute. Drivers see a "Trip in progress" notification (Android) or the blue location indicator (iPhone) during that time.
+- If a car shows **grey / "no live location"**: the driver's phone may have location off, no signal, an old app version, or (some Xiaomi/Oppo/Vivo/Huawei phones) battery saving stopped the app. Ask them to open the app – the trip card says whether location is being shared and has a **Fix** button. On those brands also set **Settings → Apps → Trip Logbook → Battery → No restrictions**.
+- Each route point is about 100 bytes; 20 drivers × 8 hours a day is roughly 1 MB a day of the 500 MB free database.
+
 ### Driver trip alerts (admins, Android)
 Your phone gets a notification when a driver starts or ends a trip. Turn it off/on in **⋮ → Reminders → Driver trip alerts**. Every admin who signs in on an Android phone gets them.
 

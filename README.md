@@ -72,6 +72,17 @@ Sign in as admin → tap the car icon → **Add vehicle** (reg no, model, curren
 - Scheduled on the phone itself (`lib/services/reminders.dart`, flutter_local_notifications) – no server; they keep working after a restart. Turn off / send a test under **⋮ → Reminders**. Signing out stops them.
 - Android uses exact alarms (`USE_EXACT_ALARM`), fine for a sideloaded APK; a Play Store release would need to justify that permission or fall back to inexact delivery (already handled in code).
 
+## Live location & routes
+
+While a trip is open the driver's phone records a GPS point about once a minute; admins see it live.
+- **Fleet status → map icon**: every vehicle that's out, where it is now (grey = not heard from for 15+ min). Refreshes every 30 s.
+- **Trip details → View route**: the route on a map, GPS distance vs odometer (flagged if they differ >15 % and >3 km), and gaps with no location.
+- Maps: OpenStreetMap via flutter_map (no API key).
+
+How it works: `lib/services/location_tracker.dart`. On **Android** it runs in a separate foreground service (flutter_foreground_task, "Trip in progress" notification) that keeps going with the screen off and **even if the app is swiped away**. On **iPhone** it uses background location (blue indicator) while the app is in memory. Points are queued on the phone when offline. Uploads go through the `add_trip_points` database function using the trip's secret `tracking_key` (no login needed, only for that trip, only while open + 30 min), so the background service never touches the driver's session. Points: table `trip_points`; latest position: view `trip_last_point`.
+
+Drivers must have **v1.7.0+** for their routes to be recorded.
+
 ## Driver trip alerts (admins, Android)
 
 Admins get a push notification when a driver **starts** ("🚗 Ali Khan left with LEB-1234 → Nowshera…") or **ends** a trip ("✅ Ali Khan is back – LEB-1234: 88 km · 3h 05m · fuel…"). Not for their own trips. On/off: **⋮ → Reminders → Driver trip alerts**.

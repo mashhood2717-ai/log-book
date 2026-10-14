@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../models.dart';
 import '../services/db.dart';
+import '../services/location.dart';
+import '../services/location_tracker.dart';
 import '../services/reminders.dart';
 import '../services/theme_settings.dart';
 import '../services/trip_alerts.dart';
@@ -60,6 +62,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
+    // Upload route points saved while offline / in the background, and retry
+    // tracking if location was just switched on or allowed.
+    LocationTracker.flush();
+    final open = _openTrip;
+    if (open != null &&
+        open.trackingKey != null &&
+        LocationTracker.state.value != TrackingState.on) {
+      LocationTracker.start(open.id, open.trackingKey!);
+    }
     final wasOff = Reminders.permission.value == false;
     Reminders.checkPermission().then((on) {
       if (wasOff && on == true) Reminders.sync(openTrip: _openTrip);
@@ -76,6 +87,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     Reminders.sync(openTrip: data.openTrip);
     // Admin phones receive driver trip alerts.
     TripAlerts.sync(data.profile);
+    // Keep recording the route of this driver's open trip (also after the
+    // app or phone restarted); stop if there's none.
+    final open = data.openTrip;
+    if (open != null && open.trackingKey != null) {
+      LocationTracker.start(open.id, open.trackingKey!);
+    } else if (LocationTracker.activeTripId != null) {
+      LocationTracker.stop();
+    }
     return data;
   }
 
@@ -378,6 +397,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             chip(Icons.schedule, timeFmt.format(t.startTime)),
             chip(Icons.speed, km(t.startMileage)),
           ]),
+          const SizedBox(height: 10),
+          _TrackingStatus(trip: t),
           const SizedBox(height: 18),
           _CardButton(
             label: 'End trip',
@@ -453,6 +474,71 @@ class _CardButton extends StatelessWidget {
         minimumSize: const Size.fromHeight(54),
         elevation: 0,
       ),
+    );
+  }
+}
+
+
+/// "Sharing location" / "Location is off – Fix" line on the open-trip card.
+class _TrackingStatus extends StatelessWidget {
+  final Trip trip;
+  const _TrackingStatus({required this.trip});
+
+  @override
+  Widget build(BuildContext context) {
+    const ink = Color(0xFF5A3300);
+    return ValueListenableBuilder<TrackingState>(
+      valueListenable: LocationTracker.state,
+      builder: (context, st, _) {
+        final (icon, text, fix) = switch (st) {
+          TrackingState.on => (
+              Icons.my_location,
+              'Sharing location with your admin during this trip',
+              false
+            ),
+          TrackingState.starting || TrackingState.off => (
+              Icons.location_searching,
+              'Starting location…',
+              false
+            ),
+          TrackingState.locationOff => (
+              Icons.location_off,
+              'Location is off – your route isn\'t being recorded',
+              true
+            ),
+          TrackingState.noPermission => (
+              Icons.location_disabled,
+              'Location not allowed – your route isn\'t being recorded',
+              true
+            ),
+          TrackingState.failed => (
+              Icons.error_outline,
+              'Couldn\'t record your route',
+              true
+            ),
+        };
+        return Row(children: [
+          Icon(icon, size: 18, color: ink),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(text,
+                style: const TextStyle(
+                    color: ink, fontSize: 13, fontWeight: FontWeight.w600)),
+          ),
+          if (fix)
+            TextButton(
+              onPressed: () async {
+                await LocationService.openSettings();
+                // Coming back re-checks (see didChangeAppLifecycleState).
+              },
+              style: TextButton.styleFrom(
+                  foregroundColor: ink,
+                  backgroundColor: Colors.white.withValues(alpha: 0.35),
+                  visualDensity: VisualDensity.compact),
+              child: const Text('Fix'),
+            ),
+        ]);
+      },
     );
   }
 }
