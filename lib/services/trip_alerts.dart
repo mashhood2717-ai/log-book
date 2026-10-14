@@ -20,6 +20,10 @@ class TripAlerts {
   static const channelId = 'trip_alerts'; // must match the Edge Function
 
   static final enabled = ValueNotifier<bool>(true);
+
+  /// What happened the last time this phone tried to register – shown in
+  /// ⋮ → Reminders so problems are visible instead of silent.
+  static final status = ValueNotifier<String>('Not checked yet');
   static bool _firebaseReady = false;
   static String? _registeredToken;
 
@@ -76,24 +80,43 @@ class TripAlerts {
     await _db.rpc('register_device_token',
         params: {'p_token': token, 'p_platform': 'android'});
     _registeredToken = token;
+    status.value = 'This phone is registered ✓';
   }
 
   /// Called after Home loads: registers an admin's phone, or removes it.
   static Future<void> sync(Profile me) async {
-    if (!available) return;
+    if (!available) {
+      status.value = 'Not available on this phone';
+      return;
+    }
+    status.value = 'Registering…';
     try {
       final saved = (await SharedPreferences.getInstance()).getBool(_prefKey);
       enabled.value = saved ?? true;
       await _initFirebase();
-      if (me.isAdmin && enabled.value) {
-        final token = await FirebaseMessaging.instance.getToken();
-        if (token != null) await _register(token);
-      } else {
+      if (!me.isAdmin) {
+        status.value = 'Only for admins';
         await unregister();
+      } else if (!enabled.value) {
+        status.value = 'Switched off';
+        await unregister();
+      } else {
+        final token = await FirebaseMessaging.instance.getToken();
+        if (token == null) {
+          status.value = 'Could not register: no push token from Google';
+        } else {
+          await _register(token);
+        }
       }
     } catch (e) {
       debugPrint('Trip alerts unavailable: $e');
+      status.value = 'Could not register: ${_short(e)}';
     }
+  }
+
+  static String _short(Object e) {
+    final s = e.toString().replaceAll(RegExp(r'\s+'), ' ');
+    return s.length > 160 ? '${s.substring(0, 160)}…' : s;
   }
 
   /// Stop alerts on this phone (switch off, or before signing out).
@@ -119,15 +142,38 @@ class TripAlerts {
     await sync(me);
   }
 
-  /// Switch shown to admins in the ⋮ → Reminders dialog.
-  static Widget settingsTile(Profile me) => ValueListenableBuilder<bool>(
-        valueListenable: enabled,
-        builder: (context, on, _) => SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          value: on,
-          onChanged: (v) => setEnabled(v, me),
-          title: const Text('Driver trip alerts'),
-          subtitle: const Text('When a driver starts or ends a trip'),
-        ),
+  /// Switch + status shown in the ⋮ → Reminders dialog (Android).
+  static Widget settingsTile(Profile me) => ListenableBuilder(
+        listenable: Listenable.merge([enabled, status]),
+        builder: (context, _) {
+          final ok = status.value.endsWith('✓');
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: enabled.value && me.isAdmin,
+                onChanged: me.isAdmin ? (v) => setEnabled(v, me) : null,
+                title: const Text('Driver trip alerts'),
+                subtitle: const Text('When a driver starts or ends a trip'),
+              ),
+              Row(children: [
+                Icon(ok ? Icons.check_circle : Icons.info_outline,
+                    size: 18,
+                    color: ok ? Colors.green : context.colors.amberText),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: SelectableText(status.value,
+                      style: TextStyle(
+                          fontSize: 13, color: context.colors.muted)),
+                ),
+                if (me.isAdmin && !ok)
+                  TextButton(
+                      onPressed: () => sync(me),
+                      child: const Text('Try again')),
+              ]),
+            ],
+          );
+        },
       );
 }

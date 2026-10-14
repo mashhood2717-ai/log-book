@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart' show Geolocator;
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
@@ -266,6 +267,17 @@ class Reminders {
                   const Divider(height: 24),
                   ...extra,
                 ],
+                const SizedBox(height: 12),
+                // Which version is installed – handy when reporting problems.
+                FutureBuilder<PackageInfo>(
+                  future: PackageInfo.fromPlatform(),
+                  builder: (_, snap) => Text(
+                    snap.hasData
+                        ? 'App version ${snap.data!.version} (${snap.data!.buildNumber})'
+                        : '',
+                    style: TextStyle(fontSize: 12, color: c.colors.faint),
+                  ),
+                ),
               ],
             ),
           ),

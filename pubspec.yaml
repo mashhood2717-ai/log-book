@@ -1,7 +1,7 @@
 name: trip_logbook
 description: Vehicle trip logbook for drivers (start/end mileage, purpose, fuel, notes).
 publish_to: 'none'
-version: 1.5.0+10
+version: 1.5.1+11
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -21,6 +21,7 @@ dependencies:
   timezone: ^0.11.1
   firebase_core: ^4.15.0
   firebase_messaging: ^16.7.0
+  package_info_plus: ^9.0.1
 
 dev_dependencies:
   flutter_test:

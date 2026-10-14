@@ -175,7 +175,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         'reminders' => Reminders.showSettings(context,
             openTrip: _openTrip,
             extra: [
-              if (TripAlerts.available && Db.me?.isAdmin == true)
+              if (TripAlerts.available && Db.me != null)
                 TripAlerts.settingsTile(Db.me!),
             ]),
         _ => Db.signOut(),
