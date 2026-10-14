@@ -15,6 +15,7 @@ await db.exec(`
   create function auth.uid() returns uuid language sql stable as
     $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   create role authenticated;
+  create role anon;
 `);
 await db.exec(schema);
 await db.exec(`
@@ -114,6 +115,29 @@ const other = await as(DRIVER, `update trips set notes='hack' where id=${c.id} r
 check("driver can't edit another person's trip", other.length === 0);
 const bad = await as(DRIVER, `update trips set end_mileage = 5 where id=${c.id} returning id`);
 check("…nor via end mileage", bad.length === 0);
+
+// --- 7. Phones registered for trip alerts ----------------------------------
+await as(ADMIN, `select register_device_token('tok-1', 'android')`);
+let owner = await one(`select user_id from device_tokens where token='tok-1'`);
+check("admin can register their phone", owner?.user_id === ADMIN);
+check("driver can't see the admin's phone token",
+  (await as(DRIVER, `select * from device_tokens`)).length === 0);
+await as(DRIVER, `select unregister_device_token('tok-1')`);
+check("driver can't remove the admin's phone token",
+  (await one(`select count(*)::int n from device_tokens`)).n === 1);
+// Same phone, now signed in as the driver: the token moves to them.
+await as(DRIVER, `select register_device_token('tok-1', 'android')`);
+owner = await one(`select user_id from device_tokens where token='tok-1'`);
+check("shared phone: token follows whoever is signed in", owner?.user_id === DRIVER);
+await as(DRIVER, `select unregister_device_token('tok-1')`);
+check("signing out removes the token",
+  (await one(`select count(*)::int n from device_tokens`)).n === 0);
+let anonBlocked = false;
+try {
+  await db.exec(`set role anon;`);
+  await db.query(`select register_device_token('x')`);
+} catch { anonBlocked = true; } finally { await db.exec(`reset role;`); }
+check("signed-out visitors can't register tokens", anonBlocked);
 
 console.log(failures ? `\n${failures} FAILED` : "\nALL PASSED");
 Deno.exit(failures ? 1 : 0);

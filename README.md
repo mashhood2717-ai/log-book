@@ -71,6 +71,20 @@ Sign in as admin → tap the car icon → **Add vehicle** (reg no, model, curren
 - Scheduled on the phone itself (`lib/services/reminders.dart`, flutter_local_notifications) – no server; they keep working after a restart. Turn off / send a test under **⋮ → Reminders**. Signing out stops them.
 - Android uses exact alarms (`USE_EXACT_ALARM`), fine for a sideloaded APK; a Play Store release would need to justify that permission or fall back to inexact delivery (already handled in code).
 
+## Driver trip alerts (admins, Android)
+
+Admins get a push notification when a driver **starts** ("🚗 Ali Khan left with LEB-1234 → Nowshera…") or **ends** a trip ("✅ Ali Khan is back – LEB-1234: 88 km · 3h 05m · fuel…"). Not for their own trips. On/off: **⋮ → Reminders → Driver trip alerts**.
+
+How it works: the admin's phone saves its Firebase token in `device_tokens` → the `trips_notify_admins` trigger (schema.sql, via pg_net) calls the `trip-alerts` Edge Function → it re-reads the trip, records the alert once in `trip_alerts`, and sends it through Firebase Cloud Messaging.
+
+Setup (once):
+1. Firebase console → create a project → add an **Android app** with package `com.weatherwalay.trip_logbook` → download `google-services.json` and copy its four values into `lib/config.dart` (`firebase*`).
+2. Firebase → Project settings → **Service accounts** → *Generate new private key*. Paste the whole JSON as the Supabase Edge Function secret `FCM_SERVICE_ACCOUNT`. Never commit it.
+3. Deploy `supabase/functions/trip-alerts/index.ts` as function `trip-alerts` with **Verify JWT off** (the function checks everything itself and sends each alert at most once).
+4. Run `supabase/schema.sql` again.
+
+iPhone: push needs a paid Apple Developer account (APNs), so alerts are Android-only for now.
+
 ## GPS / location
 
 - The app records the phone's position **once at trip start and once at trip end** – there is no background tracking, so no battery drain.
@@ -118,6 +132,7 @@ Don't delete a driver who has trips (Supabase will refuse, because their trips r
 ```bash
 flutter test                                                   # app
 deno run -A --node-modules-dir=none supabase/tests/schema_test.ts  # database rules on a real Postgres
+deno test -A --node-modules-dir=none supabase/functions/trip-alerts/  # alert wording + Google auth signing
 ```
 
 ## Branding

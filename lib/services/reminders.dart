@@ -235,7 +235,9 @@ class Reminders {
   }
 
   /// Settings dialog: on/off switch and a test button.
-  static Future<void> showSettings(BuildContext context, {Trip? openTrip}) =>
+  /// [extra] adds more switches (e.g. admin trip alerts) under the reminders.
+  static Future<void> showSettings(BuildContext context,
+          {Trip? openTrip, List<Widget> extra = const []}) =>
       showDialog(
         context: context,
         builder: (c) => AlertDialog(
@@ -260,6 +262,10 @@ class Reminders {
                   'check every trip is logged at the end of the day.',
                   style: TextStyle(color: c.colors.muted),
                 ),
+                if (extra.isNotEmpty) ...[
+                  const Divider(height: 24),
+                  ...extra,
+                ],
               ],
             ),
           ),

@@ -226,6 +226,84 @@ drop policy if exists trips_admin_delete on public.trips;
 create policy trips_admin_delete on public.trips for delete to authenticated
   using (public.is_admin());
 
+-- ---------- TRIP ALERTS FOR ADMINS (push notifications) ----------------
+-- Each admin phone registers its Firebase token here; when a trip starts or
+-- ends, a trigger calls the trip-alerts Edge Function, which sends the push.
+
+create table if not exists public.device_tokens (
+  token       text primary key,                 -- Firebase Cloud Messaging token
+  user_id     uuid not null references public.profiles(id) on delete cascade,
+  platform    text not null default 'android',
+  updated_at  timestamptz not null default now()
+);
+alter table public.device_tokens enable row level security;
+drop policy if exists device_tokens_own on public.device_tokens;
+create policy device_tokens_own on public.device_tokens for select to authenticated
+  using (user_id = auth.uid());
+
+-- A token belongs to whoever is signed in on that phone right now
+-- (handles a shared phone switching between accounts).
+create or replace function public.register_device_token(p_token text, p_platform text default 'android')
+returns void language sql security definer set search_path = public as $$
+  insert into public.device_tokens (token, user_id, platform, updated_at)
+  values (p_token, auth.uid(), p_platform, now())
+  on conflict (token) do update
+    set user_id = excluded.user_id, platform = excluded.platform, updated_at = now();
+$$;
+
+create or replace function public.unregister_device_token(p_token text)
+returns void language sql security definer set search_path = public as $$
+  delete from public.device_tokens where token = p_token and user_id = auth.uid();
+$$;
+
+revoke all on function public.register_device_token(text, text) from public, anon;
+revoke all on function public.unregister_device_token(text) from public, anon;
+grant execute on function public.register_device_token(text, text) to authenticated;
+grant execute on function public.unregister_device_token(text) to authenticated;
+
+-- Each alert is sent once per trip and event (the Edge Function records it here).
+create table if not exists public.trip_alerts (
+  trip_id  bigint not null references public.trips(id) on delete cascade,
+  event    text not null check (event in ('start', 'end')),
+  sent_at  timestamptz not null default now(),
+  primary key (trip_id, event)
+);
+alter table public.trip_alerts enable row level security; -- no policies: server only
+
+-- pg_net lets the database call the Edge Function (enabled by default on Supabase).
+do $$ begin
+  create extension if not exists pg_net with schema extensions;
+exception when others then
+  raise notice 'pg_net not available – trip alerts disabled';
+end $$;
+
+create or replace function public.trips_notify_admins()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  ev text;
+begin
+  if tg_op = 'INSERT' then
+    ev := 'start';
+  elsif old.status = 'ongoing' and new.status = 'completed' then
+    ev := 'end';
+  else
+    return new;
+  end if;
+
+  perform net.http_post(
+    url     := 'https://ofvpqdqnvmgdnyyjgevi.supabase.co/functions/v1/trip-alerts',
+    body    := jsonb_build_object('trip_id', new.id, 'event', ev),
+    headers := '{"Content-Type": "application/json"}'::jsonb
+  );
+  return new;
+exception when others then
+  return new; -- an alert problem must never stop a trip being saved
+end $$;
+
+drop trigger if exists trips_notify_admins on public.trips;
+create trigger trips_notify_admins after insert or update on public.trips
+  for each row execute function public.trips_notify_admins();
+
 -- =====================================================================
 --  AFTER running this file:
 --  1) Authentication > Users > Add user  (create yourself + each driver)

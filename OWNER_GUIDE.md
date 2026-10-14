@@ -13,6 +13,7 @@ _Last updated: 6 October 2026_
 | **All trip, vehicle and driver data** | Supabase (cloud database), Mumbai region | ❌ Not automatically on the free plan – see [§5](#5-backups) |
 | **Login accounts and passwords** | Supabase → Authentication | Stored with the database |
 | **App source code** | This computer: `D:\trip_logbook` | ❌ Only on this computer – back it up |
+| **Firebase project** (sends driver trip alerts) | console.firebase.google.com – sign in with the Google account you created it with | Firebase key also stored in Supabase as secret `FCM_SERVICE_ACCOUNT` |
 | **App signing key** (needed to publish updates) | `D:\trip_logbook\android\app\upload-keystore.jks` + `D:\trip_logbook\android\key.properties` | ⚠️ You must keep your own copy |
 | **Logo files** (SVG + PNG, for print/web) | `D:\trip_logbook\branding\` | In git |
 | **The installable app (APK)** | `D:\trip_logbook\build\app\outputs\flutter-apk\app-release.apk` | Can be rebuilt any time from the code |
@@ -108,6 +109,14 @@ Tap the driver → **Block**. They can no longer sign in, and their trips stay i
 **Delete** only works for people with no trips – e.g. an account created by mistake.
 
 > Behind the scenes this uses the `admin-users` Edge Function (see [§6](#6-the-app-and-its-code)). The same tasks can still be done by hand in the Supabase dashboard (Authentication → Users, Table Editor → profiles) if ever needed.
+
+### Driver trip alerts (admins, Android)
+Your phone gets a notification when a driver starts or ends a trip. Turn it off/on in **⋮ → Reminders → Driver trip alerts**. Every admin who signs in on an Android phone gets them.
+
+If alerts stop arriving:
+1. Check the phone allows notifications (the orange bar on Home tells you).
+2. Supabase → **Edge Functions → trip-alerts → Logs** shows each send and any error.
+3. The Firebase key is stored as the secret `FCM_SERVICE_ACCOUNT` (Supabase → Edge Functions → Secrets). If you delete/regenerate the key in Firebase, paste the new one there.
 
 ### Daily reminders
 Every signed-in phone reminds the driver at **11:00 AM and 5:00 PM (Pakistan time)** to log their trips. Each person can turn them off or send a test in **⋮ → Reminders**. If a reminder never arrives, check the phone's **Settings → Apps → Trip Logbook → Notifications** is allowed (and on some phones, turn off battery optimisation for the app).

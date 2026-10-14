@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models.dart';
 import 'reminders.dart';
+import 'trip_alerts.dart';
 
 /// An error whose message is already fit to show a driver.
 class AppException implements Exception {
@@ -25,6 +26,7 @@ class Db {
       _c.auth.signInWithPassword(email: email.trim(), password: password);
 
   static Future<void> signOut() async {
+    await TripAlerts.unregister(); // while still signed in
     me = null;
     await Reminders.cancelAll(); // this phone should stop reminding
     await _c.auth.signOut();

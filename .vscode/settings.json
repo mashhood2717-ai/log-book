@@ -4,5 +4,6 @@
   "deno.enablePaths": ["supabase/functions"],
   "deno.lint": true,
   // Some machines start VS Code before Deno is on PATH; this is where winget puts it.
-  "deno.path": "${userHome}/AppData/Local/Microsoft/WinGet/Links/deno.exe"
+  "deno.path": "${userHome}/AppData/Local/Microsoft/WinGet/Links/deno.exe",
+  "java.configuration.updateBuildConfiguration": "interactive"
 }

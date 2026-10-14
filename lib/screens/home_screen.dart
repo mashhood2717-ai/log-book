@@ -6,6 +6,7 @@ import '../models.dart';
 import '../services/db.dart';
 import '../services/reminders.dart';
 import '../services/theme_settings.dart';
+import '../services/trip_alerts.dart';
 import '../widgets/animations.dart';
 import '../widgets/brand.dart';
 import '../widgets/notification_banner.dart';
@@ -73,6 +74,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _openTrip = data.openTrip;
     // Keep the 11 AM / 5 PM reminders scheduled, worded for the current trip.
     Reminders.sync(openTrip: data.openTrip);
+    // Admin phones receive driver trip alerts.
+    TripAlerts.sync(data.profile);
     return data;
   }
 
@@ -169,7 +172,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         'vehicles' => _open(const VehiclesScreen()),
         'users' => _open(const UsersScreen()),
         'appearance' => ThemeSettings.showPicker(context),
-        'reminders' => Reminders.showSettings(context, openTrip: _openTrip),
+        'reminders' => Reminders.showSettings(context,
+            openTrip: _openTrip,
+            extra: [
+              if (TripAlerts.available && Db.me?.isAdmin == true)
+                TripAlerts.settingsTile(Db.me!),
+            ]),
         _ => Db.signOut(),
       },
       itemBuilder: (_) => [
