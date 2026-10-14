@@ -64,8 +64,12 @@ class _FleetMapScreenState extends State<FleetMapScreen> {
     return s == null ? null : LatLng(s.lat, s.lng);
   }
 
-  DateTime? _seen(Trip t) => _pos[t.id]?.recordedAt ??
-      (t.startLocation == null ? null : t.startTime);
+  /// When the phone last sent a live point (null = only the start is known).
+  DateTime? _seen(Trip t) => _pos[t.id]?.recordedAt;
+
+  /// True when the pin is only the trip's starting point, not a live position
+  /// (driver on an old app version, or location off since starting).
+  bool _startOnly(Trip t) => _pos[t.id] == null;
 
   @override
   Widget build(BuildContext context) {
@@ -107,10 +111,13 @@ class _FleetMapScreenState extends State<FleetMapScreen> {
               child: GestureDetector(
                 onTap: () => _showTrip(t),
                 child: MapPin(
-                  icon: Icons.directions_car,
+                  // Flag + "start" when there is no live position yet.
+                  icon: _startOnly(t) ? Icons.flag_outlined : Icons.directions_car,
                   // Grey when we haven't heard from the phone for 15+ minutes.
                   color: _stale(t) ? Colors.grey : Brand.orange,
-                  label: t.vehicleRegNo,
+                  label: _startOnly(t)
+                      ? '${t.vehicleRegNo} · start'
+                      : t.vehicleRegNo,
                 ),
               ),
             ),
@@ -127,7 +134,7 @@ class _FleetMapScreenState extends State<FleetMapScreen> {
 
   Widget _footer(List<Trip> trips) {
     final c = context.colors;
-    final missing = trips.where((t) => _where(t) == null).toList();
+    final missing = trips.where(_startOnly).toList();
     return Material(
       color: c.card,
       elevation: 8,
@@ -149,12 +156,14 @@ class _FleetMapScreenState extends State<FleetMapScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    'No location yet: ${missing.map((t) => '${t.vehicleRegNo} (${t.driverName})').join(', ')}',
+                    'No live location (pin = where the trip started): '
+                    '${missing.map((t) => '${t.vehicleRegNo} (${t.driverName})').join(', ')}. '
+                    'The driver needs app v1.7.0+ with location on.',
                     style: TextStyle(fontSize: 12, color: c.amberText),
                   ),
                 ),
               if (_loadedAt != null)
-                Text('Updated ${timeFmt.format(_loadedAt!)} · grey = not heard from for 15+ min',
+                Text('Updated ${timeFmt.format(_loadedAt!)} · 🚗 live · 🏁 start only · grey = silent 15+ min',
                     style: TextStyle(fontSize: 12, color: c.muted)),
             ],
           ),
@@ -181,7 +190,9 @@ class _FleetMapScreenState extends State<FleetMapScreen> {
               Text('${t.driverName} · ${t.purpose}'),
               Text('Left ${dateTimeFmt.format(t.startTime)} · out for ${durationText(t.duration)}'),
               Text(seen == null
-                  ? 'No location received yet'
+                  ? 'No live location – the pin shows where the trip started '
+                      '(${timeFmt.format(t.startTime)}). The driver needs app '
+                      'version 1.7.0 or newer with location switched on.'
                   : 'Last seen ${agoText(seen)}'),
               const SizedBox(height: 14),
               FilledButton.icon(
