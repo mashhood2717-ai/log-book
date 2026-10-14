@@ -21,7 +21,7 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.38.5 # same version used for the Android app
+          flutter-version: 3.47.6 # same version used for the Android app
           channel: stable
           cache: true
 
