@@ -17,11 +17,14 @@ await db.exec(`
   create role authenticated;
   create role anon;
 `);
+// Like Supabase: new functions are executable by logged-in users by default,
+// so revokes inside schema.sql (e.g. purge_old_trip_points) take effect.
+await db.exec(`alter default privileges in schema public grant execute on functions to authenticated;`);
 await db.exec(schema);
 await db.exec(`
   grant usage on schema public, auth to authenticated;
   grant all on all tables in schema public to authenticated;
-  grant execute on all functions in schema public, auth to authenticated;
+  grant execute on all functions in schema auth to authenticated;
   grant usage on schema public to anon;
 `);
 
@@ -206,6 +209,19 @@ await db.exec(`alter table trips disable trigger trips_guard;
 blocked = false;
 try { await asAnon(`select add_trip_points(${kt.id}, '${kt.tracking_key}', ${pts})`); } catch { blocked = true; }
 check("key stops working after the trip is closed", blocked);
+
+// --- Route clean-up after 3 months ------------------------------------------
+await db.exec(`insert into trip_points (trip_id, driver_id, recorded_at, lat, lng) values
+  (${kt.id}, '${DRIVER}', now() - interval '4 months', 34, 71),
+  (${kt.id}, '${DRIVER}', now() - interval '2 months', 34, 71)`);
+const before = Number((await one(`select count(*) n from trip_points where trip_id=${kt.id}`)).n);
+const purged = (await one(`select purge_old_trip_points() n`)).n;
+const after = Number((await one(`select count(*) n from trip_points where trip_id=${kt.id}`)).n);
+check("clean-up deletes only points older than 3 months", purged === 1 && after === before - 1);
+blocked = false;
+try { await as(DRIVER, `select purge_old_trip_points()`); } catch { blocked = true; }
+check("drivers can't run the clean-up", blocked);
+check("the trip itself is kept", (await one(`select count(*) n from trips where id=${kt.id}`)).n == 1);
 
 console.log(failures ? `\n${failures} FAILED` : "\nALL PASSED");
 Deno.exit(failures ? 1 : 0);

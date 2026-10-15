@@ -196,7 +196,7 @@ class _StartTripScreenState extends State<StartTripScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                   child: Text(
-                    'While this trip is open, your location is shared with your admin about once a minute. It stops when you end the trip.',
+                    'While this trip is open, your location is shared live with your admin (every few seconds while driving). It stops when you end the trip.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),

@@ -383,6 +383,38 @@ end $$;
 revoke all on function public.add_trip_points(bigint, text, jsonb) from public;
 grant execute on function public.add_trip_points(bigint, text, jsonb) to anon, authenticated;
 
+-- Live map: the app is told the moment a route point is saved (Supabase
+-- Realtime). Access rules above still apply to who receives what.
+do $$ begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (select 1 from pg_publication_tables
+                      where pubname = 'supabase_realtime'
+                        and schemaname = 'public' and tablename = 'trip_points') then
+    alter publication supabase_realtime add table public.trip_points;
+  end if;
+end $$;
+
+-- Detailed route points older than 3 months are deleted every night
+-- (03:15 PKT); the trips themselves are kept forever.
+create or replace function public.purge_old_trip_points()
+returns integer language sql security definer set search_path = public as $$
+  with gone as (
+    delete from public.trip_points
+     where recorded_at < now() - interval '3 months'
+    returning 1
+  )
+  select count(*)::integer from gone;
+$$;
+revoke all on function public.purge_old_trip_points() from public, anon, authenticated;
+
+do $$ begin
+  create extension if not exists pg_cron with schema pg_catalog;
+  perform cron.schedule('purge-old-trip-points', '15 22 * * *',
+                        'select public.purge_old_trip_points()');
+exception when others then
+  raise notice 'pg_cron unavailable (%): run  select public.purge_old_trip_points();  by hand now and then', sqlerrm;
+end $$;
+
 -- Latest known position of each trip (Fleet status map).
 create or replace view public.trip_last_point with (security_invoker = on) as
   select distinct on (trip_id) trip_id, lat, lng, accuracy, speed, recorded_at

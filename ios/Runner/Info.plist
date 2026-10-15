@@ -5,9 +5,9 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>While a trip is open, your location is recorded (about once a minute) so your manager can see where the vehicle is and the route it took. Nothing is recorded when you have no trip open.</string>
+	<string>While a trip is open, your location is recorded (every few seconds while driving) so your manager can see where the vehicle is and the route it took. Nothing is recorded when you have no trip open.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>While a trip is open, your location is recorded (about once a minute), also with the screen off, so your manager can see where the vehicle is and the route it took. Nothing is recorded when you have no trip open.</string>
+	<string>While a trip is open, your location is recorded (every few seconds while driving), also with the screen off, so your manager can see where the vehicle is and the route it took. Nothing is recorded when you have no trip open.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>

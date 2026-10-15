@@ -74,8 +74,8 @@ Sign in as admin → tap the car icon → **Add vehicle** (reg no, model, curren
 
 ## Live location & routes
 
-While a trip is open the driver's phone records a GPS point about once a minute; admins see it live.
-- **Fleet status → map icon**: every vehicle that's out, where it is now (grey = not heard from for 15+ min). Refreshes every 30 s.
+While a trip is open the driver's phone sends a GPS point **every 10 s while moving** (every 2 min while parked); admins see it **live** – the map updates the moment a point arrives (Supabase Realtime on `trip_points`, with a 20 s refresh as fallback). Route points older than **3 months** are deleted automatically (`purge_old_trip_points`, pg_cron, 03:15 PKT); trips themselves are kept.
+- **Fleet status → map icon**: every vehicle that's out, where it is now (grey = not heard from for 15+ min).
 - **Trip details → View route**: the route on a map, GPS distance vs odometer (flagged if they differ >15 % and >3 km), and gaps with no location.
 - Maps: OpenStreetMap via flutter_map (no API key).
 

@@ -68,17 +68,28 @@ void main() {
       };
     });
 
-    test('about one point a minute is kept', () async {
-      await LocationTracker.addPoint(pt(0, 34, 71));
-      await LocationTracker.addPoint(pt(20, 34, 71)); // too soon – dropped
-      await LocationTracker.addPoint(pt(60, 34, 71));
-      expect(uploads.expand((b) => b).length, 2);
+    test('every 10 s while moving', () async {
+      // ~110 m north every 10 s
+      for (var i = 0; i < 6; i++) {
+        await LocationTracker.addPoint(pt(i * 10, 34 + i * 0.001, 71));
+      }
+      await LocationTracker.addPoint(pt(55, 34.0059, 71)); // only 5 s later
+      expect(uploads.expand((b) => b).length, 6);
+    });
+
+    test('parked: one point every 2 minutes', () async {
+      // Standing still (a few metres of GPS wobble), a fix every 10 s for 5 min
+      for (var s = 0; s <= 300; s += 10) {
+        await LocationTracker.addPoint(pt(s, 34 + (s % 20) * 0.000005, 71));
+      }
+      // 0 s, 120 s, 240 s
+      expect(uploads.expand((b) => b).length, 3);
     });
 
     test('offline points are kept and sent together later', () async {
       failWith = Exception('no internet');
       await LocationTracker.addPoint(pt(0, 34, 71));
-      await LocationTracker.addPoint(pt(60, 34, 71));
+      await LocationTracker.addPoint(pt(10, 34.001, 71));
       expect(LocationTracker.pendingCount, 2);
       failWith = null;
       await LocationTracker.flush();

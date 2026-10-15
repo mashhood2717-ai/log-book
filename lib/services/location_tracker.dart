@@ -10,14 +10,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config.dart';
 import '../models.dart';
+import 'route_math.dart';
 
 enum TrackingState { off, starting, on, noPermission, locationOff, failed }
 
 /// The database refused these points (wrong key / trip closed) – drop them.
 class PointsRejected implements Exception {}
 
-/// Records the driver's route while a trip is open (about one point a
-/// minute) and uploads it with the trip's tracking key.
+/// Records the driver's route while a trip is open (a point every 10 s
+/// while moving, every 2 min while parked) and uploads it right away with the
+/// trip's tracking key.
 ///
 /// * Android: a separate foreground service ("Trip in progress"
 ///   notification) that keeps running with the screen off and even if the
@@ -26,15 +28,22 @@ class PointsRejected implements Exception {}
 ///   in memory.
 /// Points taken without signal are kept on the phone and uploaded later.
 class LocationTracker {
-  static const minGap = Duration(seconds: 55); // ≈ one point a minute
+  /// A new point at most every [interval] while the vehicle moves…
+  static const interval = Duration(seconds: 10);
+
+  /// …"moving" meaning at least this many metres since the last point…
+  static const minMove = 20.0;
+
+  /// …and while parked one point per [heartbeat], so "last seen" stays fresh.
+  static const heartbeat = Duration(minutes: 2);
   static const _queueKey = 'pending_trip_points';
   static const _keysKey = 'trip_tracking_keys';
-  static const _maxQueue = 5000; // ~3 days offline at 1/min
+  static const _maxQueue = 20000; // ~2 days offline at 1 point / 10 s
 
   static final state = ValueNotifier<TrackingState>(TrackingState.off);
   static int? _tripId;
   static StreamSubscription<Position>? _sub; // iPhone
-  static DateTime? _lastAccepted;
+  static TrackPoint? _lastPoint;
   static final List<TrackPoint> _queue = [];
   static final Map<int, String> _keys = {}; // trip id -> tracking key
   static bool _loaded = false;
@@ -101,7 +110,7 @@ class LocationTracker {
   /// Stop recording (trip ended / signed out) and upload what's left.
   static Future<void> stop() async {
     _tripId = null;
-    _lastAccepted = null;
+    _lastPoint = null;
     await _sub?.cancel();
     _sub = null;
     if (Platform.isAndroid && await FlutterForegroundTask.isRunningService) {
@@ -162,7 +171,7 @@ class LocationTracker {
       locationSettings: AppleSettings(
         accuracy: LocationAccuracy.high,
         activityType: ActivityType.automotiveNavigation,
-        distanceFilter: 50,
+        distanceFilter: 0, // every fix; addPoint keeps 1 per 10 s / 2 min
         pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: true,
         allowBackgroundLocationUpdates: true,
@@ -184,13 +193,19 @@ class LocationTracker {
         speed: p.speed >= 0 ? p.speed : null,
       ));
 
-  /// Queue a point (at most one per [minGap]) and try to upload.
+  /// Queue a point and upload it. Keeps at most one per [interval], and
+  /// while parked (moved < [minMove] m) only one per [heartbeat].
   @visibleForTesting
   static Future<void> addPoint(TrackPoint p) async {
     if (p.tripId < 0) return;
-    final last = _lastAccepted;
-    if (last != null && p.recordedAt.difference(last) < minGap) return;
-    _lastAccepted = p.recordedAt;
+    final last = _lastPoint;
+    if (last != null && last.tripId == p.tripId) {
+      final dt = p.recordedAt.difference(last.recordedAt);
+      if (dt < interval) return;
+      final moved = kmBetween(last.lat, last.lng, p.lat, p.lng) * 1000;
+      if (moved < minMove && dt < heartbeat) return;
+    }
+    _lastPoint = p;
     await _load();
     _queue.add(p);
     if (_queue.length > _maxQueue) {
@@ -284,7 +299,7 @@ class LocationTracker {
     _queue.clear();
     _keys.clear();
     _loaded = true;
-    _lastAccepted = null;
+    _lastPoint = null;
     _flushing = false;
     _tripId = tripId;
     if (tripId != null) _keys[tripId] = key;
@@ -297,39 +312,57 @@ void trackingServiceEntry() =>
     FlutterForegroundTask.setTaskHandler(_TrackingTask());
 
 class _TrackingTask extends TaskHandler {
+  StreamSubscription<Position>? _sub;
+  bool _warned = false; // notification currently says location is off
+
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     final id = await FlutterForegroundTask.getData<int>(key: 'trip_id');
     final key = await FlutterForegroundTask.getData<String>(key: 'trip_key');
     if (id == null || key == null) return;
     await LocationTracker.serviceStarted(id, key);
-    await _tick();
+    _listen();
   }
 
-  @override
-  void onRepeatEvent(DateTime timestamp) => _tick();
-
-  Future<void> _tick() async {
-    try {
-      final p = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 40),
-        ),
-      );
-      await LocationTracker.addPosition(p);
+  /// GPS fixes every [LocationTracker.interval]; addPoint thins them out.
+  void _listen() {
+    _sub?.cancel();
+    _sub = Geolocator.getPositionStream(
+      locationSettings: AndroidSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 0,
+        intervalDuration: LocationTracker.interval,
+      ),
+    ).listen((p) {
+      LocationTracker.addPosition(p);
       FlutterForegroundTask.sendDataToMain(TrackingState.on.name);
-    } on LocationServiceDisabledException {
-      FlutterForegroundTask.sendDataToMain(TrackingState.locationOff.name);
-      FlutterForegroundTask.updateService(
-          notificationText: 'Location is off – your route is not being recorded');
-    } catch (e) {
-      debugPrint('Tracking tick failed: $e');
-      await LocationTracker.flush(); // at least send what we have
-    }
+      if (_warned) {
+        _warned = false;
+        FlutterForegroundTask.updateService(
+            notificationText: 'Trip Logbook is recording your route');
+      }
+    }, onError: (Object e) {
+      debugPrint('Tracking stream error: $e');
+      _sub = null; // the watchdog below restarts it
+      if (e is LocationServiceDisabledException) {
+        FlutterForegroundTask.sendDataToMain(TrackingState.locationOff.name);
+        _warned = true;
+        FlutterForegroundTask.updateService(
+            notificationText: 'Location is off – your route is not being recorded');
+      }
+    });
+  }
+
+  /// Every minute: restart the stream if it stopped, retry waiting uploads.
+  @override
+  void onRepeatEvent(DateTime timestamp) {
+    if (_sub == null) _listen();
+    LocationTracker.flush();
   }
 
   @override
-  Future<void> onDestroy(DateTime timestamp, bool isTimeout) =>
-      LocationTracker.flush();
+  Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
+    await _sub?.cancel();
+    await LocationTracker.flush();
+  }
 }

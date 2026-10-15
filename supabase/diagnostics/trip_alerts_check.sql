@@ -16,6 +16,18 @@ begin
   return query select '5. latest trips',
     (select string_agg(id || ' ' || status, ', ')
        from (select id, status from public.trips order by id desc limit 3) t);
+  return query select '7. live map updates (Realtime on route points)',
+    case when exists (select 1 from pg_publication_tables
+                       where pubname = 'supabase_realtime' and tablename = 'trip_points')
+         then 'yes' else 'NO – run schema.sql again' end;
+  if to_regclass('cron.job') is not null then
+    return query execute $q$
+      select '8. route clean-up after 3 months',
+             coalesce((select 'scheduled: ' || schedule || ' UTC' from cron.job
+                        where jobname = 'purge-old-trip-points'), 'NOT scheduled') $q$;
+  else
+    return query select '8. route clean-up after 3 months', 'pg_cron not enabled'::text;
+  end if;
   if to_regclass('net._http_response') is not null then
     return query execute $q$
       select '6. last calls from database to function',

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show RealtimeChannel;
 
 import '../models.dart';
 import '../services/db.dart';
@@ -11,7 +12,8 @@ import '../widgets/brand.dart';
 import '../widgets/trip_map.dart';
 import '../widgets/trip_widgets.dart';
 
-/// A trip's recorded route on a map. Refreshes live while the trip is open.
+/// A trip's recorded route on a map. While the trip is open new points
+/// arrive live (Supabase Realtime), with a 15 s top-up as fallback.
 class RouteScreen extends StatefulWidget {
   final Trip trip;
   const RouteScreen({super.key, required this.trip});
@@ -24,6 +26,7 @@ class _RouteScreenState extends State<RouteScreen> {
   List<TrackPoint>? _points;
   Object? _error;
   Timer? _timer;
+  RealtimeChannel? _live;
   final _map = MapController();
 
   Trip get t => widget.trip;
@@ -33,13 +36,15 @@ class _RouteScreenState extends State<RouteScreen> {
     super.initState();
     _load();
     if (t.isOngoing) {
-      _timer = Timer.periodic(const Duration(seconds: 30), (_) => _load());
+      _timer = Timer.periodic(const Duration(seconds: 15), (_) => _topUp());
+      _live = Db.watchTripPoints(_add, tripId: t.id);
     }
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    if (_live != null) Db.unwatch(_live!);
     super.dispose();
   }
 
@@ -54,6 +59,24 @@ class _RouteScreenState extends State<RouteScreen> {
     } catch (e) {
       if (mounted) setState(() => _error = e);
     }
+  }
+
+  /// Fetch only points newer than the last one we have.
+  Future<void> _topUp() async {
+    final have = _points;
+    if (have == null) return _load();
+    try {
+      final more = await Db.tripPoints(t.id,
+          after: have.isEmpty ? null : have.last.recordedAt);
+      more.forEach(_add);
+    } catch (_) {} // keep showing what we have
+  }
+
+  void _add(TrackPoint p) {
+    final have = _points;
+    if (!mounted || have == null) return;
+    if (have.isNotEmpty && !p.recordedAt.isAfter(have.last.recordedAt)) return;
+    setState(() => _points = [...have, p]);
   }
 
   List<LatLng> _line(List<TrackPoint> pts) => [
@@ -179,7 +202,7 @@ class _RouteScreenState extends State<RouteScreen> {
                 child: Text(
                     last == null
                         ? 'No location received yet'
-                        : 'Last seen ${agoText(last.recordedAt)} (${timeFmt.format(last.recordedAt)}) · updates every 30 s',
+                        : 'Last seen ${agoText(last.recordedAt)} (${timeFmt.format(last.recordedAt)}) · live',
                     style: TextStyle(fontSize: 12, color: c.muted)),
               ),
             const SizedBox(height: 10),

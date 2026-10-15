@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show RealtimeChannel;
 
 import '../models.dart';
 import '../services/db.dart';
@@ -11,7 +12,8 @@ import '../widgets/trip_map.dart';
 import '../widgets/trip_widgets.dart';
 import 'route_screen.dart';
 
-/// Admin: where every vehicle that's out is right now. Refreshes every 30 s.
+/// Admin: where every vehicle that's out is right now. Positions arrive
+/// live (Supabase Realtime); a 20 s refresh is the fallback.
 class FleetMapScreen extends StatefulWidget {
   const FleetMapScreen({super.key});
 
@@ -25,19 +27,34 @@ class _FleetMapScreenState extends State<FleetMapScreen> {
   Object? _error;
   DateTime? _loadedAt;
   Timer? _timer;
+  RealtimeChannel? _live;
   final _map = MapController();
 
   @override
   void initState() {
     super.initState();
     _load();
-    _timer = Timer.periodic(const Duration(seconds: 30), (_) => _load());
+    _timer = Timer.periodic(const Duration(seconds: 20), (_) => _load());
+    _live = Db.watchTripPoints(_onPoint);
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    if (_live != null) Db.unwatch(_live!);
     super.dispose();
+  }
+
+  void _onPoint(TrackPoint p) {
+    if (!mounted) return;
+    if (_trips?.any((t) => t.id == p.tripId) != true) {
+      _load(); // a trip we don't know yet – reload the list
+      return;
+    }
+    final cur = _pos[p.tripId];
+    if (cur == null || p.recordedAt.isAfter(cur.recordedAt)) {
+      setState(() => _pos = {..._pos, p.tripId: p});
+    }
   }
 
   Future<void> _load() async {

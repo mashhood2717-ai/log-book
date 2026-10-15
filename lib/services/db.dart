@@ -224,21 +224,51 @@ class Db {
   }
 
   // ---------------- Routes (live location) ----------------
-  /// Every recorded point of a trip, oldest first.
-  static Future<List<TrackPoint>> tripPoints(int tripId) async {
+  /// Recorded points of a trip, oldest first ([after] = only newer ones).
+  static Future<List<TrackPoint>> tripPoints(int tripId, {DateTime? after}) async {
     final pts = <TrackPoint>[];
     const page = 1000;
     while (true) {
-      final rows = await _c
+      var q = _c
           .from('trip_points')
           .select('trip_id, recorded_at, lat, lng, accuracy, speed')
-          .eq('trip_id', tripId)
+          .eq('trip_id', tripId);
+      if (after != null) q = q.gt('recorded_at', after.toUtc().toIso8601String());
+      final rows = await q
           .order('recorded_at')
           .range(pts.length, pts.length + page - 1);
       pts.addAll(rows.map(TrackPoint.fromMap));
       if (rows.length < page) return pts;
     }
   }
+
+  /// Live: calls [onPoint] the moment a route point is saved (Supabase
+  /// Realtime; respects the same access rules). [tripId] = only that trip.
+  static RealtimeChannel watchTripPoints(void Function(TrackPoint) onPoint,
+      {int? tripId}) {
+    return _c
+        .channel('trip-points-${tripId ?? 'all'}-${DateTime.now().microsecondsSinceEpoch}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'trip_points',
+          filter: tripId == null
+              ? null
+              : PostgresChangeFilter(
+                  type: PostgresChangeFilterType.eq,
+                  column: 'trip_id',
+                  value: tripId),
+          callback: (payload) {
+            try {
+              onPoint(TrackPoint.fromMap(payload.newRecord));
+            } catch (_) {}
+          },
+        )
+        .subscribe();
+  }
+
+  static Future<void> unwatch(RealtimeChannel channel) =>
+      _c.removeChannel(channel);
 
   /// Latest known position of each of [tripIds].
   static Future<Map<int, TrackPoint>> lastPositions(List<int> tripIds) async {
